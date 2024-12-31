@@ -1,9 +1,11 @@
 {
   "name": "quantum-forge-bot",
   "version": "1.0.0",
+  "description": "Quantum-Forge Discord Bot for QuantumChronoTerminal",
   "main": "server.js",
-  "engines": {
-    "node": ">=16.9.0"
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "discord.js": "^13.16.0",
@@ -11,9 +13,8 @@
     "cors": "^2.8.5",
     "node-fetch": "^2.6.7"
   },
-  "scripts": {
-    "start": "node server.js",
-    "test": "node test-webhook.js"
+  "engines": {
+    "node": ">=16.9.0"
   }
 }
 

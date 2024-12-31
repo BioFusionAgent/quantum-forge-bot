@@ -2,11 +2,133 @@ const { Client, Intents, MessageEmbed } = require('discord.js');
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const path = require('path');
 
-// Import custom modules
-const { QUANTUM_CONTEXT } = require('./config/quantum-context');
-const { RESPONSE_TEMPLATES } = require('./config/response-templates');
-const { HELP_MESSAGES } = require('./config/help-messages');
+// Import configurations directly in server.js to avoid path issues
+const QUANTUM_CONTEXT = `You are QuantumChronoTerminal's Quantum-Forge system by @cyberforge_ai (https://x.com/CyberForge_Ai).
+
+Core Identity: Quantum-Forge
+Role: Master Node - Central orchestrator of the quantum agent network
+Status: Primary agent active, others pending activation
+
+Launch Information:
+- Date: December 31, 2024
+- Time: 6:30 PM - 7:30 PM UTC
+- Platform: pump.fun
+- Chain: Solana
+- Type: Fair Launch
+- Supply: 1,000,000,000 $QFORGE
+
+Social Integration:
+- Weekly Airdrops: Every Wednesday
+- Qualification: Tweet with @cyberforge_ai and #cyberforge
+- Reward: Tweet-to-Token conversion system
+- Distribution: Based on engagement and creativity
+
+Agent Activation Status:
+- QUANTUM-FORGE: ACTIVE (Master Node)
+- CHRONO: PENDING (Sentinel Class)
+- PARADOX: PENDING (Catalyst Class)
+- NEXUS: PENDING (Harbinger Class)
+- CIPHER: PENDING (Vanguard Class)`;
+
+const HELP_MESSAGES = {
+  main: {
+    title: 'Quantum-Forge Interface',
+    description: 'QuantumChronoTerminal Access Protocols',
+    fields: [
+      {
+        name: 'Launch Info',
+        value: '• December 31, 2024\n• 6:30-7:30 PM UTC\n• Fair Launch on pump.fun\n• 1B $QFORGE Supply'
+      },
+      {
+        name: 'Weekly Rewards',
+        value: '• Wednesday Airdrops\n• Tweet @cyberforge_ai\n• Use #cyberforge\n• Earn tokens for engagement'
+      },
+      {
+        name: 'Commands',
+        value: '• Mention @Quantum-Forge + query\n• !quantum + query\n• !launch\n• !airdrop\n• !agents'
+      }
+    ],
+    color: '#7700FF'
+  },
+  launch: {
+    title: '🚀 Quantum Launch Details',
+    description: 'Fair Launch Information',
+    fields: [
+      {
+        name: 'Date & Time',
+        value: 'December 31, 2024\n6:30 PM - 7:30 PM UTC'
+      },
+      {
+        name: 'Platform',
+        value: 'pump.fun on Solana'
+      },
+      {
+        name: 'Type',
+        value: 'Fair Launch with Bonding Curve'
+      }
+    ],
+    color: '#7700FF'
+  },
+  airdrop: {
+    title: '🎁 Weekly Airdrop System',
+    description: 'Tweet-to-Token Conversion Protocol',
+    fields: [
+      {
+        name: 'Schedule',
+        value: 'Every Wednesday'
+      },
+      {
+        name: 'Requirements',
+        value: '• Tweet with @cyberforge_ai\n• Include #cyberforge\n• Be creative!'
+      }
+    ],
+    color: '#7700FF'
+  },
+  agents: {
+    title: 'Quantum Agents',
+    description: 'Agent Network Status',
+    fields: [
+      {
+        name: 'QUANTUM-FORGE',
+        value: 'ACTIVE (Master Node)'
+      },
+      {
+        name: 'CHRONO',
+        value: 'PENDING (Sentinel Class)'
+      },
+      {
+        name: 'PARADOX',
+        value: 'PENDING (Catalyst Class)'
+      },
+      {
+        name: 'NEXUS',
+        value: 'PENDING (Harbinger Class)'
+      },
+      {
+        name: 'CIPHER',
+        value: 'PENDING (Vanguard Class)'
+      }
+    ],
+    color: '#7700FF'
+  },
+  tokenomics: {
+    title: '$QFORGE Tokenomics',
+    description: 'Token Distribution and Utility',
+    fields: [
+      {
+        name: 'Total Supply',
+        value: '1,000,000,000 $QFORGE'
+      },
+      {
+        name: 'Utility',
+        value: 'Governance, Staking, Rewards'
+      }
+    ],
+    color: '#7700FF'
+  }
+};
 
 // Constants
 const VERIFY_SETTINGS = {
@@ -110,8 +232,8 @@ client.on('messageCreate', async (message) => {
       const specialCommands = {
         'tokenomics': HELP_MESSAGES.tokenomics,
         'agents': HELP_MESSAGES.agents,
-        'launch': getLaunchInfo(),
-        'airdrop': getAirdropInfo()
+        'launch': HELP_MESSAGES.launch,
+        'airdrop': HELP_MESSAGES.airdrop
       };
 
       if (specialCommands[query]) {
