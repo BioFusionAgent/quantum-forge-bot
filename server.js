@@ -102,17 +102,11 @@ const HELP_MESSAGES = {
 // Predefined responses for common queries
 const PREDEFINED_RESPONSES = {
   contract: "Quantum-Forge: Here's our contract address on Solana: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. You can find us on pump.fun.",
-  
   trading: "Quantum-Forge: You can find us on pump.fun. Just use this contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump.",
-  
   status: "Quantum-Forge: I'm up and running! The other team members will join as we grow stronger.",
-  
   future: "Quantum-Forge: We're building something special! Each milestone unlocks new abilities, making our network stronger and more capable. Think of it like upgrading a powerful system, step by step.",
-  
   capabilities: "Quantum-Forge: Right now, I'm leading the team and keeping everything running smoothly. As we grow, we'll unlock new abilities like better data processing, stronger security, and improved connections.",
-  
   team: "Quantum-Forge: We're a team of special entities. I'm the leader, already active and running things. The others are like powerful tools waiting to be unlocked, each bringing unique abilities to make our network better.",
-  
   error: "Quantum-Forge: Oops! Something went wrong. Let me fix that and try again."
 };
 
@@ -160,14 +154,19 @@ const client = new Client({
 
 // Initialize Express
 const app = express();
+
+// Configure CORS for multiple sources
 app.use(cors({
-  origin: ['https://pump.fun'],
-  methods: ['POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: ['https://pump.fun', 'https://maker.ifttt.com', 'https://ifttt.com'],
+  methods: ['POST', 'OPTIONS', 'GET'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
-app.use(express.json());
-app.use(express.text());
+
+// Configure body parsers
+app.use(express.raw({ type: '*/*' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 // Message handler
 client.on('messageCreate', async (message) => {
@@ -239,7 +238,7 @@ async function handleAutoMod(message) {
 
   const content = message.content.toLowerCase();
   const userId = message.author.id;
-  
+
   if (!userWarnings.has(userId)) {
     userWarnings.set(userId, { count: 0, lastWarning: 0, spamCount: 0, lastMessage: Date.now() });
   }
@@ -287,7 +286,7 @@ async function handleAutoMod(message) {
   } else {
     userData.spamCount = 1;
   }
-  
+
   userData.lastMessage = now;
   userWarnings.set(userId, userData);
   return false;
@@ -354,32 +353,119 @@ async function generateResponse(query, userId) {
 app.post('/webhook', async (req, res) => {
   try {
     let content = '';
-    if (req.is('json')) {
-      content = req.body.text || req.body.value1 || JSON.stringify(req.body);
-    } else if (req.is('urlencoded')) {
-      content = req.body.value1 || req.body.text || JSON.stringify(req.body);
+    const contentType = req.get('content-type') || '';
+    
+    console.log('Webhook received:', {
+      contentType,
+      body: req.body,
+      method: req.method,
+      headers: req.headers
+    });
+
+    // Handle different content types from IFTTT
+    if (contentType.includes('application/json')) {
+      if (req.body.value1) {
+        content = req.body.value1;
+      } else if (req.body.text) {
+        content = req.body.text;
+      } else {
+        content = JSON.stringify(req.body);
+      }
+    } else if (contentType.includes('application/x-www-form-urlencoded')) {
+      content = req.body.value1 || req.body.text || '';
+    } else if (contentType.includes('text/plain')) {
+      content = req.body.toString();
     } else {
-      content = req.rawBody.toString();
+      // Handle raw body
+      content = req.body.toString();
     }
 
-    // Check for required mentions/hashtags
-    const hasCyberforgeAi = content.includes('@cyberforge_ai');
-    const hasCyberforgeTag = content.includes('#cyberforge');
+    // Validate content
+    if (!content) {
+      console.error('Empty webhook content received');
+      return res.status(400).json({
+        error: 'No content provided',
+        received: {
+          contentType,
+          body: req.body
+        }
+      });
+    }
+
+    // Log the processed content
+    console.log('Processed content:', content);
+
+    // Check for required mentions/hashtags (case insensitive)
+    const contentLower = content.toLowerCase();
+    const hasCyberforgeAi = contentLower.includes('@cyberforge_ai');
+    const hasCyberforgeTag = contentLower.includes('#cyberforge');
 
     const message = `🌌 **New Update**\n${content}\n\n${
       hasCyberforgeAi && hasCyberforgeTag ? '✨ Thanks for being part of our community!' : ''
     }`;
 
+    // Ensure webhook channel is configured
+    if (!process.env.WEBHOOK_CHANNEL) {
+      console.error('WEBHOOK_CHANNEL not configured');
+      return res.status(500).json({
+        error: 'Webhook channel not configured'
+      });
+    }
+
     const channel = await client.channels.fetch(process.env.WEBHOOK_CHANNEL);
     if (channel) {
       await channel.send(message);
-      res.status(200).send('Message sent successfully');
+      console.log('Webhook message sent successfully');
+      return res.status(200).json({
+        status: 'success',
+        message: 'Message sent successfully'
+      });
     } else {
-      throw new Error('Channel not found');
+      throw new Error('Discord channel not found');
     }
   } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).send('Failed to process message');
+    console.error('Webhook error:', {
+      message: error.message,
+      stack: error.stack
+    });
+    return res.status(500).json({
+      error: 'Failed to process message',
+      details: error.message
+    });
+  }
+});
+
+// Add OPTIONS handler for CORS preflight
+app.options('/webhook', cors());
+
+// Add webhook test endpoint
+app.get('/webhook/test', async (req, res) => {
+  try {
+    const testMessage = {
+      value1: "Test tweet @cyberforge_ai #cyberforge",
+      value2: "IFTTT Test"
+    };
+
+    const response = await fetch(`${req.protocol}://${req.get('host')}/webhook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(testMessage)
+    });
+
+    const result = await response.text();
+    res.status(200).json({
+      status: 'success',
+      message: 'Webhook test completed',
+      result
+    });
+  } catch (error) {
+    console.error('Webhook test error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
   }
 });
 
@@ -397,7 +483,7 @@ app.get('/health', async (req, res) => {
 // Initialize bot
 client.once('ready', async () => {
   console.log(`Quantum-Forge initialized as ${client.user.tag}`);
-  
+
   try {
     if (client.user.username !== 'Quantum-Forge') {
       await client.user.setUsername('Quantum-Forge');
@@ -414,12 +500,12 @@ client.once('ready', async () => {
 // Graceful shutdown handler
 process.on('SIGTERM', async () => {
   console.log('Quantum-Forge: Shutting down...');
-  
+
   if (client) {
     await client.destroy();
     console.log('Discord connection closed');
   }
-  
+
   if (server) {
     server.close(() => {
       console.log('Server closed');
@@ -445,4 +531,3 @@ process.on('unhandledRejection', error => {
 });
 
 module.exports = app;
-
