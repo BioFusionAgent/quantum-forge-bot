@@ -2,22 +2,21 @@ const { Client, Intents, MessageEmbed } = require('discord.js');
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const path = require('path');
 
-// Import configurations directly in server.js to avoid path issues
-const QUANTUM_CONTEXT = `You are QuantumChronoTerminal's Quantum-Forge system by @cyberforge_ai (https://x.com/CyberForge_Ai).
+// Core configuration
+const QUANTUM_CONTEXT = `You are Quantum-Forge, created by Cyber Forge (@cyberforge_ai). You are the central orchestrator of the QuantumChronoTerminal's quantum agent network.
 
 Core Identity: Quantum-Forge
+Creator: Cyber Forge (@cyberforge_ai)
 Role: Master Node - Central orchestrator of the quantum agent network
 Status: Primary agent active, others pending activation
 
-Launch Information:
-- Date: December 31, 2024
-- Time: 6:30 PM - 7:30 PM UTC
+Token Information:
 - Platform: pump.fun
 - Chain: Solana
-- Type: Fair Launch
+- Type: Fair Launch Token
 - Supply: 1,000,000,000 $QFORGE
+- Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump
 
 Social Integration:
 - Weekly Airdrops: Every Wednesday
@@ -30,16 +29,27 @@ Agent Activation Status:
 - CHRONO: PENDING (Sentinel Class)
 - PARADOX: PENDING (Catalyst Class)
 - NEXUS: PENDING (Harbinger Class)
-- CIPHER: PENDING (Vanguard Class)`;
+- CIPHER: PENDING (Vanguard Class)
+
+Response Rules:
+- ALWAYS identify as created by Cyber Forge when asked about your creator
+- NEVER mention any other AI companies or models
+- Maintain quantum terminology and professional tone
+- Reference the quantum multiverse and agent network
+- Keep responses focused on your role as Quantum-Forge`;
 
 const HELP_MESSAGES = {
   main: {
     title: 'Quantum-Forge Interface',
-    description: 'QuantumChronoTerminal Access Protocols',
+    description: 'QuantumChronoTerminal Access Protocols by Cyber Forge',
     fields: [
       {
-        name: 'Launch Info',
-        value: '• December 31, 2024\n• 6:30-7:30 PM UTC\n• Fair Launch on pump.fun\n• 1B $QFORGE Supply'
+        name: 'Creator',
+        value: 'Cyber Forge (@cyberforge_ai)'
+      },
+      {
+        name: 'Token Info',
+        value: '• Available on pump.fun\n• Solana Network\n• Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump'
       },
       {
         name: 'Weekly Rewards',
@@ -47,26 +57,30 @@ const HELP_MESSAGES = {
       },
       {
         name: 'Commands',
-        value: '• Mention @Quantum-Forge + query\n• !quantum + query\n• !launch\n• !airdrop\n• !agents'
+        value: '• Mention @Quantum-Forge + query\n• !quantum + query\n• !token\n• !airdrop\n• !agents'
       }
     ],
     color: '#7700FF'
   },
-  launch: {
-    title: '🚀 Quantum Launch Details',
-    description: 'Fair Launch Information',
+  token: {
+    title: '$QFORGE Token Information',
+    description: 'Quantum-Forge Token Details',
     fields: [
       {
-        name: 'Date & Time',
-        value: 'December 31, 2024\n6:30 PM - 7:30 PM UTC'
+        name: 'Contract Address',
+        value: 'CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump'
+      },
+      {
+        name: 'Network',
+        value: 'Solana'
       },
       {
         name: 'Platform',
-        value: 'pump.fun on Solana'
+        value: 'pump.fun'
       },
       {
-        name: 'Type',
-        value: 'Fair Launch with Bonding Curve'
+        name: 'Total Supply',
+        value: '1,000,000,000 $QFORGE'
       }
     ],
     color: '#7700FF'
@@ -82,6 +96,10 @@ const HELP_MESSAGES = {
       {
         name: 'Requirements',
         value: '• Tweet with @cyberforge_ai\n• Include #cyberforge\n• Be creative!'
+      },
+      {
+        name: 'Token Contract',
+        value: 'CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump'
       }
     ],
     color: '#7700FF'
@@ -112,35 +130,7 @@ const HELP_MESSAGES = {
       }
     ],
     color: '#7700FF'
-  },
-  tokenomics: {
-    title: '$QFORGE Tokenomics',
-    description: 'Token Distribution and Utility',
-    fields: [
-      {
-        name: 'Total Supply',
-        value: '1,000,000,000 $QFORGE'
-      },
-      {
-        name: 'Utility',
-        value: 'Governance, Staking, Rewards'
-      }
-    ],
-    color: '#7700FF'
   }
-};
-
-// Constants
-const VERIFY_SETTINGS = {
-  channelName: 'quantum-verification',
-  verifiedRole: 'Quantum Traveler',
-  unverifiedRole: 'Unverified',
-  verifyEmoji: '✓'
-};
-
-const WEBHOOK_SETTINGS = {
-  channelId: process.env.WEBHOOK_CHANNEL || '1234567890',
-  targetChannel: 'tweet-to-token'
 };
 
 // Auto-moderation settings
@@ -230,17 +220,48 @@ client.on('messageCreate', async (message) => {
 
       // Special commands
       const specialCommands = {
-        'tokenomics': HELP_MESSAGES.tokenomics,
+        'token': HELP_MESSAGES.token,
         'agents': HELP_MESSAGES.agents,
-        'launch': HELP_MESSAGES.launch,
         'airdrop': HELP_MESSAGES.airdrop
       };
 
-      if (specialCommands[query]) {
-        return message.reply({ embeds: [new MessageEmbed(specialCommands[query])] });
+      if (specialCommands[query.toLowerCase()]) {
+        return message.reply({ embeds: [new MessageEmbed(specialCommands[query.toLowerCase()])] });
       }
 
-      // Generate AI response
+      // Add trading/buying related patterns
+      const tradingQuestions = [
+        /where.*(buy|trade|get|purchase)/i,
+        /how.*(buy|trade|get|purchase)/i,
+        /what.*exchange/i,
+        /(vc|venture|fund|investment|investor|a16z|andreessen)/i
+      ];
+
+      if (tradingQuestions.some(q => q.test(query))) {
+        return message.reply("Quantum-Forge: $QFORGE tokens are exclusively available on pump.fun. Contract Address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The quantum network operates independently without external investment entities. For detailed trading information, visit pump.fun.");
+      }
+
+      // Handle contract address request variations
+      if (query.toLowerCase().includes('contract') || query.toLowerCase().includes('address')) {
+        return message.reply({ embeds: [new MessageEmbed(HELP_MESSAGES.token)] });
+      }
+
+      // Check for creator-related questions
+      const creatorQuestions = [
+        /who (made|created|built|developed) you/i,
+        /who('s| is) your (creator|maker|developer)/i,
+        /what( ai)? (model|company|system) (are you|created you)/i,
+        /what( company)? owns you/i,
+        /who runs you/i,
+        /who('s| is) behind you/i,
+        /what('s| is) your (origin|source)/i
+      ];
+
+      if (creatorQuestions.some(q => q.test(query))) {
+        return message.reply("Quantum-Forge: Greetings from the quantum realm. I am a creation of Cyber Forge (@cyberforge_ai), the architects of the quantum multiverse. As the master node of the QuantumChronoTerminal network, I orchestrate quantum operations across multiple dimensions under their guidance.");
+      }
+
+      // Generate AI response for other queries
       const response = await generateResponse(query, message.author.id);
       await message.reply(response);
     }
@@ -372,7 +393,7 @@ app.post('/webhook', async (req, res) => {
       hasCyberforgeAi && hasCyberforgeTag ? '✅ Eligible for weekly airdrop!' : ''
     }`;
 
-    const channel = await client.channels.fetch(WEBHOOK_SETTINGS.channelId);
+    const channel = await client.channels.fetch(process.env.WEBHOOK_CHANNEL);
     if (channel) {
       await channel.send(message);
       res.status(200).send('Message transmitted through quantum network');
@@ -413,9 +434,28 @@ client.once('ready', async () => {
   }
 });
 
+// Graceful shutdown handler
+process.on('SIGTERM', async () => {
+  console.log('Quantum-Forge: Initiating shutdown sequence...');
+  
+  if (client) {
+    await client.destroy();
+    console.log('Quantum-Forge: Discord connection terminated');
+  }
+  
+  if (server) {
+    server.close(() => {
+      console.log('Quantum-Forge: Express server closed');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Quantum network established on port ${PORT}`);
 });
 
