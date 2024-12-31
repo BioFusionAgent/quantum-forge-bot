@@ -6,13 +6,23 @@ client.once('ready', async () => {
   if (client.user.username !== 'Quantum-Forge') {
     try {
       await client.user.setUsername('Quantum-Forge');
-      console.log('NEXUS: Bot designation updated to Quantum-Forge');
+      console.log('System: Bot designation updated to Quantum-Forge');
     } catch (error) {
-      console.error('PARADOX: Username update error:', error);
+      console.error('Username update error:', error);
       console.log('Note: Username can only be changed twice per hour due to Discord rate limits');
     }
   }
 
-  // Rest of your ready event code...
+  // Set bot avatar
+  try {
+    const avatarUrl = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image%20(22).jpg-mQZSisIcGmE1piRS2ZvstSJn8eU5n4.jpeg';
+    
+    if (client.user.avatarURL() !== avatarUrl) {
+      await client.user.setAvatar(avatarUrl);
+      console.log('System: Avatar configuration complete');
+    }
+  } catch (error) {
+    console.error('Avatar update error:', error);
+  }
 });
 

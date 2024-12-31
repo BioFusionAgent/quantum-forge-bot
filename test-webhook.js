@@ -4,20 +4,23 @@ async function testWebhook() {
   const webhookUrl = 'https://berry-thoughtful-citrus.glitch.me/webhook';
   
   const tests = [
-    // Test 1: IFTTT format (URL-encoded)
+    // Test 1: Plain text
+    {
+      contentType: 'text/plain',
+      body: 'Barts_future Hi #cyberforge https://twitter.com/Barts_future/status/1234567890'
+    },
+    // Test 2: JSON format
+    {
+      contentType: 'application/json',
+      body: JSON.stringify({
+        text: 'Test tweet from JSON format',
+        username: 'JSONTester'
+      })
+    },
+    // Test 3: IFTTT format
     {
       contentType: 'application/x-www-form-urlencoded',
       body: 'value1=Test+tweet+from+IFTTT&value2=IFTTT+Test'
-    },
-    // Test 2: IFTTT format (plain text)
-    {
-      contentType: 'text/plain',
-      body: 'value1=Test tweet&value2=IFTTT User'
-    },
-    // Test 3: Raw text
-    {
-      contentType: 'text/plain',
-      body: 'Simple test message'
     }
   ];
 
