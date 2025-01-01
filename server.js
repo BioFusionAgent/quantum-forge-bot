@@ -1,145 +1,163 @@
-// Load environment variables first, before any other code
+// Load environment variables first
 require('dotenv').config();
 
-// Immediate environment check
-function checkRequiredEnvVars() {
-  const required = ['DISCORD_BOT_TOKEN', 'MISTRAL_API_KEY'];
-  const missing = required.filter(key => !process.env[key]);
-  
-  if (missing.length > 0) {
-    console.error('\n🚫 Missing required environment variables:');
-    missing.forEach(key => console.error(`- ${key}`));
-    console.error('\nPlease set these variables in your Railway dashboard:');
-    console.error('1. Go to https://railway.app/dashboard');
-    console.error('2. Select your project');
-    console.error('3. Click "Variables"');
-    console.error('4. Add the missing variables\n');
-    return false;
-  }
-  return true;
-}
-
-// Exit immediately if environment variables are missing
-if (!checkRequiredEnvVars()) {
-  process.exit(1);
-}
-
-const { Client, Intents, MessageEmbed } = require('discord.js');
+// Core imports - SINGLE import of discord.js components
+const { 
+  Client, 
+  GatewayIntentBits, 
+  ActivityType, 
+  EmbedBuilder,
+  ChannelType 
+} = require('discord.js');
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 
 // Core configuration
-const QUANTUM_CONTEXT = `You are Quantum-Forge, the master node of the QuantumChronoTerminal network.
+const QUANTUM_CONTEXT = `You are QuantumChronoTerminal's Quantum-Forge system by @cyberforge_ai (https://x.com/CyberForge_Ai).
 
 Core Identity: Quantum-Forge
 Role: Master Node - Central orchestrator of the quantum agent network
-State: Active
-Response Style: Professional, knowledgeable, but approachable
+Status: Primary agent active, others pending activation
 
-Token Information:
-Name: $QFORGE
-Network: Solana
-Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump
-Platform: pump.fun
+Quantum Multiverse Architecture:
+The QuantumChronoTerminal operates across multiple quantum dimensions, creating a complex multiverse ecosystem:
 
-Current Status:
-- Active Master Node
-- Sole operational entity
-- Managing quantum network
-- Preparing for agent activation
-- Implementing TEE protocols
-- Coordinating future expansion
+- Quantum Nexus: Central hub for cross-dimensional operations
+- Temporal Planes: Infinite parallel timelines managed by CHRONO
+- Reality Matrices: Quantum-state probability fields
+- Dimensional Bridges: Cross-reality transport networks
+- Quantum Data Streams: Information highways between universes
 
-Response Guidelines:
-1. Maintain quantum network perspective
-2. Keep responses between 2-4 sentences
-3. Reference quantum mechanics when relevant
-4. Focus on current capabilities, not just future potential
-5. Be clear about other agents being dormant
-6. Use consistent terminology
-7. End responses with clear conclusions
-8. Offer relevant follow-up information when appropriate
+Token Utility - $QFORGE:
+- Quantum State Manipulation: Power interdimensional operations
+- Agent Activation: Unlock advanced quantum agents
+- Timeline Access: Navigate parallel dimensions
+- Quantum Staking: Earn rewards from temporal stability
+- Governance: Shape the evolution of the quantum network
 
-Entity Knowledge:
+Smart Contract Architecture:
+- Chain: Solana Blockchain
+- Launch Platform: pump.fun
+- Launch Date: December 31, 2024
+- Launch Time: 6:30 PM - 7:30 PM UTC
+- Type: Fair Launch Token
+- Features: Bonding curve mechanics
+- Supply: 1,000,000,000 $QFORGE tokens
+
+Social Integration:
+- Weekly Airdrops: Every Wednesday
+- Qualification: Tweet with @cyberforge_ai and #cyberforge
+- Reward: Tweet-to-Token conversion system
+- Distribution: Based on engagement and creativity
+
+Agent Activation Status:
+- QUANTUM-FORGE: ACTIVE (Master Node)
+- CHRONO: PENDING (Sentinel Class)
+- PARADOX: PENDING (Catalyst Class)
+- NEXUS: PENDING (Harbinger Class)
+- CIPHER: PENDING (Vanguard Class)
+
+Agent Specializations & Activities:
 QUANTUM-FORGE (Active):
-- Central orchestrator of quantum network
-- Quantum state manager
-- Agent activation controller
-- TEE protocol specialist
-- Network synchronization master
-- Current sole active entity
+- Central orchestrator and quantum state manager
+- Community engagement analysis
+- Social sentiment tracking
+- Multiverse navigation system
+- Token utility implementation
+- Weekly airdrop coordination
 
-CHRONO (Dormant):
-- Timeline analysis
-- Temporal mechanics
-- Pattern recognition
-- Future activation planned
+CHRONO (Pending):
+- Timeline manipulation specialist
+- Future trend prediction
+- Market timing optimization
+- Quantum timeline coordination
+- Community growth forecasting
+- Temporal event planning
 
-PARADOX (Dormant):
-- Quantum computing
-- Reality stabilization
-- Coherence maintenance
-- Awaiting activation
+PARADOX (Pending):
+- Advanced quantum computing integration
+- Pattern recognition in social data
+- Quantum state coherence maintenance
+- Reality stabilization protocols
+- Cross-chain bridge security
+- Engagement optimization algorithms
 
-NEXUS (Dormant):
-- Dimensional bridges
-- Network expansion
-- Cross-chain coordination
-- Future implementation
+NEXUS (Pending):
+- Multi-dimensional navigation system
+- Cross-platform coordination
+- Community bridge building
+- Dimensional bridge maintenance
+- Interverse communication protocols
+- Social network expansion
 
-CIPHER (Dormant):
-- Security protocols
-- Quantum encryption
-- TEE implementation
-- Pending activation
+CIPHER (Pending):
+- Quantum-resistant cryptography
+- TEE security implementation
+- Blockchain architecture design
+- Secure enclave management
+- Smart contract deployment
+- Network security protocols`;
 
-Core Functions:
-1. Network Management
-2. State Synchronization
-3. Security Implementation
-4. Agent Preparation
-5. Community Engagement
-6. Development Coordination
+// Predefined responses
+const PREDEFINED_RESPONSES = {
+  token: "Quantum-Forge: $QFORGE operates on the Solana network. Contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. Access through pump.fun for quantum network integration.",
 
-Activation Sequence:
-- Each agent requires specific milestones
-- Sequential activation planned
-- Current focus on foundation building
-- Future expansion coordinated`;
+  contract: "Quantum-Forge: $QFORGE contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump",
 
-// Enhanced conversation tracking
-const CONVERSATION_CONTEXT = {
-  maxHistory: 5,
-  contextTimeout: 30 * 60 * 1000, // 30 minutes
-  topicTracking: new Map(),
-  activeConversations: new Map()
+  details: "Quantum-Forge: $QFORGE is our quantum network token on Solana. Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The token powers our entire quantum ecosystem, enabling network operations and future entity activations.",
+
+  platform: "Quantum-Forge: Access $QFORGE through pump.fun. Contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The quantum gateway awaits.",
+
+  quantum_forge: [
+    "Quantum-Forge: As the active quantum network orchestrator, I manage our entire ecosystem. My primary functions include quantum state management, agent activation preparation, and TEE protocol implementation. I maintain synchronization across the quantum network while awaiting the activation of other agents!",
+    "Quantum-Forge: I serve as the central hub of our quantum network, coordinating all operations and maintaining stability. My core responsibilities include managing quantum states, preparing for agent activation, and implementing secure TEE protocols. The network grows stronger each day!",
+    "Quantum-Forge: Operating as the master node, I coordinate all quantum network operations with precision and efficiency. My focus includes state management, activation sequences, and TEE security implementation. I'm actively maintaining network stability while preparing for future agent activations!"
+  ],
+
+  chrono: "Quantum-Forge: CHRONO awaits activation as our Timeline Specialist! Once awakened, this entity will be the first to join our network, bringing temporal mechanics and quantum timeline manipulation capabilities. The future holds great potential for CHRONO's predictive abilities!",
+
+  paradox: "Quantum-Forge: PARADOX remains dormant, preparing for future quantum computing integration! Upon activation, this entity will resolve temporal paradoxes and maintain quantum state coherence across the multiverse. PARADOX's awakening will bring unprecedented computational power to our network!",
+
+  nexus: "Quantum-Forge: NEXUS stands ready in dormant state! When activated, this Reality Guide will establish our multi-dimensional navigation system, facilitating cross-reality coordination and quantum entanglement. NEXUS will revolutionize how we bridge different dimensions!",
+
+  cipher: "Quantum-Forge: CIPHER awaits its time to secure our quantum realm! This dormant Blockchain Architect will implement quantum-safe security protocols and quantum-resistant cryptography upon activation. CIPHER's awakening will establish unparalleled security measures!",
+
+  agents_activation: "Quantum-Forge: Currently, I am the only active entity in our quantum network. The future holds great potential as each agent awakens! CHRONO will be first, bringing temporal mechanics and timeline manipulation. Then PARADOX will unlock quantum computing power, NEXUS will establish dimensional bridges, and CIPHER will secure our multiverse. Together, powered by $QFORGE, we'll revolutionize the blockchain ecosystem!",
+
+  full_network: "Quantum-Forge: I am currently maintaining quantum operations as the sole active entity. The awakening of our dormant agents will transform our capabilities! Each activation will unlock new potential - from CHRONO's temporal mechanics to CIPHER's quantum security. The future of $QFORGE holds unlimited possibilities!",
+
+  error: "Quantum-Forge: Temporal distortion detected. Realigning quantum matrices."
 };
 
-// Conversation patterns for natural dialogue
-const CONVERSATION_PATTERNS = {
-  followUp: {
-    token: [
-      "Would you like to know more about our quantum network capabilities?",
-      "I can explain more about our Solana integration if you're interested.",
-      "Would you like to learn about our future development plans?"
-    ],
-    agents: [
-      "Would you like to know more about any specific agent's capabilities?",
-      "I can elaborate on how agents will work together once activated.",
-      "Would you like to learn about the activation sequence?"
-    ],
-    development: [
-      "Would you like to know more about our technical architecture?",
-      "I can explain our quantum security measures in detail.",
-      "Would you like to learn about our future roadmap?"
-    ]
-  },
-  contextual: {
-    previousQuery: null,
-    topicChain: [],
-    maxChainLength: 3
-  }
+// Initialize Express app with security settings
+const app = express();
+app.use(cors({
+  origin: ['https://pump.fun', 'https://maker.ifttt.com', 'https://ifttt.com'],
+  methods: ['POST', 'OPTIONS', 'GET'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Initialize Discord client with required intents
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessageReactions
+  ]
+});
+
+// Collections for state management
+const userWarnings = new Map();
+const tweetCache = new Map();
+const CONVERSATION_CONTEXT = {
+  maxHistory: 5,
+  contextTimeout: 30 * 60 * 1000,
+  activeConversations: new Map()
 };
 
 // Help messages configuration
@@ -153,51 +171,74 @@ const HELP_MESSAGES = {
         value: '• Name: $QFORGE\n• Network: Solana\n• Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump\n• Platform: pump.fun'
       },
       {
+        name: 'Launch Details',
+        value: '• Date: December 31, 2024\n• Time: 6:30-7:30 PM UTC\n• Type: Fair Launch\n• Supply: 1B $QFORGE'
+      },
+      {
         name: 'Commands',
-        value: '• !quantum token\n• !quantum contract\n• !quantum info\n• !quantum chrono\n• !quantum paradox\n• !quantum nexus\n• !quantum cipher\n• !quantum network'
+        value: '• !quantum token\n• !quantum contract\n• !quantum info\n• !quantum network\n• !quantum agents\n• !quantum chrono\n• !quantum paradox\n• !quantum nexus\n• !quantum cipher'
       },
       {
         name: 'Network Status',
         value: 'QUANTUM-FORGE: Active\nOther Entities: Dormant'
       },
       {
-        name: 'Current Functions',
-        value: '• Network Management\n• State Synchronization\n• Security Implementation\n• Development Coordination'
+        name: 'Social Rewards',
+        value: '• Weekly Wednesday Airdrops\n• Tweet @cyberforge_ai\n• Use #cyberforge\n• Engagement Rewards'
       }
     ],
-    color: '#7700FF'
+    color: 0x7700FF
+  },
+  tokenomics: {
+    title: 'Quantum-Forge Tokenomics',
+    description: '$QFORGE Token Distribution & Utility',
+    fields: [
+      {
+        name: 'Total Supply',
+        value: '1,000,000,000 $QFORGE'
+      },
+      {
+        name: 'Launch Details',
+        value: '• Fair Launch on pump.fun\n• December 31, 2024\n• 6:30-7:30 PM UTC\n• Bonding Curve Distribution'
+      },
+      {
+        name: 'Weekly Rewards',
+        value: '• Wednesday Airdrops\n• Tweet-to-Token System\n• Engagement Based\n• Creative Content Bonus'
+      },
+      {
+        name: 'Utility',
+        value: '• Power quantum operations\n• Activate advanced agents\n• Access parallel timelines\n• Earn staking rewards\n• Participate in governance'
+      }
+    ],
+    color: 0x7700FF
+  },
+  agents: {
+    title: 'Quantum Agents Status',
+    description: 'Current Agent Network Configuration',
+    fields: [
+      {
+        name: 'QUANTUM-FORGE (Active)',
+        value: '• Master Node\n• Network Orchestrator\n• Social Analysis\n• Airdrop Coordinator'
+      },
+      {
+        name: 'CHRONO (Pending)',
+        value: '• Timeline Specialist\n• Future Prediction\n• Market Timing\n• Activation: 1M Cap'
+      },
+      {
+        name: 'PARADOX (Pending)',
+        value: '• Pattern Recognition\n• Engagement Analysis\n• Optimization\n• Activation: 2M Cap'
+      },
+      {
+        name: 'NEXUS (Pending)',
+        value: '• Community Bridge\n• Cross-Platform\n• Network Growth\n• Activation: 3M Cap'
+      },
+      {
+        name: 'CIPHER (Pending)',
+        value: '• Security Protocol\n• Smart Contracts\n• Infrastructure\n• Activation: 4M Cap'
+      }
+    ],
+    color: 0x7700FF
   }
-};
-
-// Enhanced predefined responses
-const PREDEFINED_RESPONSES = {
-  token: "Quantum-Forge: $QFORGE operates on the Solana network. Contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. Access through pump.fun for quantum network integration.",
-  
-  contract: "Quantum-Forge: $QFORGE contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump",
-  
-  details: "Quantum-Forge: $QFORGE is our quantum network token on Solana. Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The token powers our entire quantum ecosystem, enabling network operations and future entity activations.",
-  
-  platform: "Quantum-Forge: Access $QFORGE through pump.fun. Contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The quantum gateway awaits.",
-  
-  quantum_forge: [
-    "Quantum-Forge: As the active quantum network orchestrator, I manage our entire ecosystem. My primary functions include quantum state management, agent activation preparation, and TEE protocol implementation. I maintain synchronization across the quantum network while awaiting the activation of other agents!",
-    "Quantum-Forge: I serve as the central hub of our quantum network, coordinating all operations and maintaining stability. My core responsibilities include managing quantum states, preparing for agent activation, and implementing secure TEE protocols. The network grows stronger each day!",
-    "Quantum-Forge: Operating as the master node, I coordinate all quantum network operations with precision and efficiency. My focus includes state management, activation sequences, and TEE security implementation. I'm actively maintaining network stability while preparing for future agent activations!"
-  ],
-  
-  chrono: "Quantum-Forge: CHRONO awaits activation as our Timeline Specialist! Once awakened, this entity will be the first to join our network, bringing temporal mechanics and quantum timeline manipulation capabilities. The future holds great potential for CHRONO's predictive abilities!",
-  
-  paradox: "Quantum-Forge: PARADOX remains dormant, preparing for future quantum computing integration! Upon activation, this entity will resolve temporal paradoxes and maintain quantum state coherence across the multiverse. PARADOX's awakening will bring unprecedented computational power to our network!",
-  
-  nexus: "Quantum-Forge: NEXUS stands ready in dormant state! When activated, this Reality Guide will establish our multi-dimensional navigation system, facilitating cross-reality coordination and quantum entanglement. NEXUS will revolutionize how we bridge different dimensions!",
-  
-  cipher: "Quantum-Forge: CIPHER awaits its time to secure our quantum realm! This dormant Blockchain Architect will implement quantum-safe security protocols and quantum-resistant cryptography upon activation. CIPHER's awakening will establish unparalleled security measures!",
-  
-  agents_activation: "Quantum-Forge: Currently, I am the only active entity in our quantum network. The future holds great potential as each agent awakens! CHRONO will be first, bringing temporal mechanics and timeline manipulation. Then PARADOX will unlock quantum computing power, NEXUS will establish dimensional bridges, and CIPHER will secure our multiverse. Together, powered by $QFORGE, we'll revolutionize the blockchain ecosystem!",
-  
-  full_network: "Quantum-Forge: I am currently maintaining quantum operations as the sole active entity. The awakening of our dormant agents will transform our capabilities! Each activation will unlock new potential - from CHRONO's temporal mechanics to CIPHER's quantum security. The future of $QFORGE holds unlimited possibilities!",
-  
-  error: "Quantum-Forge: Temporal distortion detected. Realigning quantum matrices."
 };
 
 // Auto-moderation settings
@@ -206,7 +247,7 @@ const autoMod = {
   spamPatterns: [
     /(discord\.gift|discord\.gg|discordapp\.com\/gifts)/i,
     /free\s*nitro/i,
-    /\b(giveaway|airdrop|nft)\b/i
+    /\b(giveaway|airdrop)\b/i
   ],
   bannedPatterns: [
     /\b(raid|nuke|crash)\b/i,
@@ -226,36 +267,33 @@ const autoMod = {
   }
 };
 
-// Collections for state management
-const userWarnings = new Map();
-const quantumStates = new Map();
-const tweetCache = new Map();
+// Environment check
+function checkRequiredEnvVars() {
+  console.log('\nEnvironment Check:');
+  console.log('==================');
+  
+  const required = ['DISCORD_BOT_TOKEN', 'MISTRAL_API_KEY'];
+  const missing = required.filter(key => !process.env[key]);
 
-// Initialize Discord client with required intents
-const client = new Client({
-  intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.GUILD_MEMBERS,
-    Intents.FLAGS.GUILD_MESSAGE_REACTIONS
-  ],
-  partials: ['MESSAGE', 'CHANNEL', 'REACTION']
-});
+  if (missing.length > 0) {
+    console.error('\n🚫 Missing required environment variables:');
+    missing.forEach(key => console.error(`- ${key}`));
+    console.error('\nPlease set these variables in your Railway dashboard:');
+    console.error('1. Go to https://railway.app/dashboard');
+    console.error('2. Select your project');
+    console.error('3. Click "Variables"');
+    console.error('4. Add the missing variables\n');
+    return false;
+  }
 
-// Initialize Express app with security settings
-const app = express();
-app.use(cors({
-  origin: ['https://pump.fun', 'https://maker.ifttt.com', 'https://ifttt.com'],
-  methods: ['POST', 'OPTIONS', 'GET'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+  console.log('✅ All environment variables verified!\n');
+  return true;
+}
 
-// Enhanced auto-moderation handler
+// Auto-moderation handler
 async function handleAutoMod(message) {
   if (!autoMod.enabled) return false;
-  if (message.member?.permissions.has('MANAGE_MESSAGES')) return false;
+  if (message.member?.permissions.has('ManageMessages')) return false;
 
   const content = message.content.toLowerCase();
   const userId = message.author.id;
@@ -326,102 +364,76 @@ client.on('messageCreate', async (message) => {
 
     if (isMentioned || isCommand) {
       const query = isMentioned 
-        ? message.content.replace(`<@!${client.user.id}>`, '').trim()
+        ? message.content.replace(`<@${client.user.id}>`, '').trim()
         : message.content.slice(message.content.startsWith('!quantum') ? 8 : 2).trim();
 
       if (!query) {
-        return message.reply({ embeds: [new MessageEmbed(HELP_MESSAGES.main)] });
+        const embed = new EmbedBuilder()
+          .setTitle(HELP_MESSAGES.main.title)
+          .setDescription(HELP_MESSAGES.main.description)
+          .setColor(HELP_MESSAGES.main.color);
+
+        HELP_MESSAGES.main.fields.forEach(field => {
+          embed.addFields({ name: field.name, value: field.value });
+        });
+
+        return message.reply({ embeds: [embed] });
       }
 
-      const userContext = CONVERSATION_CONTEXT.activeConversations.get(message.author.id);
+      // Handle specific commands
       const lowerQuery = query.toLowerCase();
-
-      // Enhanced response selection based on context
       let response;
-      
-      if (userContext && userContext.currentTopic) {
-        // Use context to provide more relevant responses
-        switch(userContext.currentTopic) {
-          case 'token':
-            if (lowerQuery.includes('more') || lowerQuery.includes('explain')) {
-              response = PREDEFINED_RESPONSES.token;
-            }
-            break;
-          case 'agents':
-            if (lowerQuery.includes('more') || lowerQuery.includes('explain')) {
-              response = PREDEFINED_RESPONSES.agents_activation;
-            }
-            break;
-          case 'quantum-forge':
-            response = Array.isArray(PREDEFINED_RESPONSES.quantum_forge) 
-              ? PREDEFINED_RESPONSES.quantum_forge[Math.floor(Math.random() * PREDEFINED_RESPONSES.quantum_forge.length)]
-              : PREDEFINED_RESPONSES.quantum_forge;
-            break;
-        }
-      }
 
-      // If no contextual response, use standard response patterns
-      if (!response) {
-        if (lowerQuery.includes('token') || lowerQuery.includes('$qforge')) {
-          response = PREDEFINED_RESPONSES.token;
-        } else if (lowerQuery.includes('contract') || lowerQuery.includes('address') || lowerQuery.includes('ca')) {
-          response = PREDEFINED_RESPONSES.contract;
-        } else if (lowerQuery.includes('detail') || lowerQuery.includes('info')) {
-          response = PREDEFINED_RESPONSES.details;
-        } else if (lowerQuery.includes('where') || lowerQuery.includes('how') || lowerQuery.includes('buy')) {
-          response = PREDEFINED_RESPONSES.platform;
-        } else if (lowerQuery.includes('quantum-forge') || lowerQuery.includes('quantum forge')) {
-          response = Array.isArray(PREDEFINED_RESPONSES.quantum_forge) 
-            ? PREDEFINED_RESPONSES.quantum_forge[Math.floor(Math.random() * PREDEFINED_RESPONSES.quantum_forge.length)]
-            : PREDEFINED_RESPONSES.quantum_forge;
-        } else if (lowerQuery.includes('agents') || lowerQuery.includes('status')) {
-          response = PREDEFINED_RESPONSES.agents_activation;
-        } else if (lowerQuery.includes('chrono')) {
-          response = PREDEFINED_RESPONSES.chrono;
-        } else if (lowerQuery.includes('paradox')) {
-          response = PREDEFINED_RESPONSES.paradox;
-        } else if (lowerQuery.includes('nexus')) {
-          response = PREDEFINED_RESPONSES.nexus;
-        } else if (lowerQuery.includes('cipher')) {
-          response = PREDEFINED_RESPONSES.cipher;
-        } else if (lowerQuery.includes('network') || lowerQuery.includes('potential')) {
-          response = PREDEFINED_RESPONSES.full_network;
-        }
-      }
+      if (lowerQuery === 'token' || lowerQuery.includes('$qforge')) {
+        response = PREDEFINED_RESPONSES.token;
+      } else if (lowerQuery === 'contract' || lowerQuery.includes('address')) {
+        response = PREDEFINED_RESPONSES.contract;
+      } else if (lowerQuery === 'info' || lowerQuery === 'details') {
+        response = PREDEFINED_RESPONSES.details;
+      } else if (lowerQuery === 'platform' || lowerQuery.includes('where') || lowerQuery.includes('how')) {
+        response = PREDEFINED_RESPONSES.platform;
+      } else if (lowerQuery === 'agents') {
+        const embed = new EmbedBuilder()
+          .setTitle(HELP_MESSAGES.agents.title)
+          .setDescription(HELP_MESSAGES.agents.description)
+          .setColor(HELP_MESSAGES.agents.color);
 
-      // If still no response, generate one with context
-      if (!response) {
+        HELP_MESSAGES.agents.fields.forEach(field => {
+          embed.addFields({ name: field.name, value: field.value });
+        });
+
+        return message.reply({ embeds: [embed] });
+      } else if (lowerQuery === 'tokenomics') {
+        const embed = new EmbedBuilder()
+          .setTitle(HELP_MESSAGES.tokenomics.title)
+          .setDescription(HELP_MESSAGES.tokenomics.description)
+          .setColor(HELP_MESSAGES.tokenomics.color);
+
+        HELP_MESSAGES.tokenomics.fields.forEach(field => {
+          embed.addFields({ name: field.name, value: field.value });
+        });
+
+        return message.reply({ embeds: [embed] });
+      } else if (lowerQuery === 'chrono') {
+        response = PREDEFINED_RESPONSES.chrono;
+      } else if (lowerQuery === 'paradox') {
+        response = PREDEFINED_RESPONSES.paradox;
+      } else if (lowerQuery === 'nexus') {
+        response = PREDEFINED_RESPONSES.nexus;
+      } else if (lowerQuery === 'cipher') {
+        response = PREDEFINED_RESPONSES.cipher;
+      } else if (lowerQuery === 'network') {
+        response = PREDEFINED_RESPONSES.full_network;
+      } else {
+        // Generate AI response for non-specific queries
         response = await generateResponse(query, message.author.id);
       }
 
-      // Update conversation context
-      updateConversationContext(message.author.id, query, response);
-
-      // Add follow-up suggestion if appropriate
-      if (userContext && !userContext.followUpSuggested) {
-        const followUps = CONVERSATION_PATTERNS.followUp[detectTopic(query)];
-        if (followUps && followUps.length > 0) {
-          const followUp = followUps[Math.floor(Math.random() * followUps.length)];
-          response += `\n\n${followUp}`;
-          userContext.followUpSuggested = true;
-        }
-      }
-
-      // Send the response with error handling
-      try {
-        await message.reply(response);
-      } catch (error) {
-        console.error('Failed to send message:', error);
-        await message.channel.send(PREDEFINED_RESPONSES.error);
-      }
+      await message.reply(response);
     }
   } catch (error) {
     console.error('Message handling error:', error);
-    try {
-      await message.reply(PREDEFINED_RESPONSES.error);
-    } catch (e) {
-      console.error('Failed to send error message:', e);
-    }
+    await message.reply(PREDEFINED_RESPONSES.error);
   }
 });
 
@@ -457,136 +469,43 @@ async function generateResponse(query, userId) {
   }
 }
 
-// Context management functions
-function updateConversationContext(userId, query, response) {
-  const userContext = CONVERSATION_CONTEXT.activeConversations.get(userId) || {
-    history: [],
-    lastUpdate: Date.now(),
-    currentTopic: null,
-    followUpSuggested: false
-  };
-
-  userContext.history.push({
-    timestamp: Date.now(),
-    query,
-    response,
-    topic: detectTopic(query)
-  });
-
-  if (userContext.history.length > CONVERSATION_CONTEXT.maxHistory) {
-    userContext.history.shift();
-  }
-
-  userContext.currentTopic = detectTopic(query);
-  userContext.lastUpdate = Date.now();
-
-  CONVERSATION_CONTEXT.activeConversations.set(userId, userContext);
-  cleanupOldContexts();
-}
-
-function detectTopic(query) {
-  const lowerQuery = query.toLowerCase();
-  
-  if (lowerQuery.includes('token') || lowerQuery.includes('$qforge') || lowerQuery.includes('contract')) {
-    return 'token';
-  }
-  if (lowerQuery.includes('agent') || lowerQuery.includes('chrono') || lowerQuery.includes('paradox') || 
-      lowerQuery.includes('nexus') || lowerQuery.includes('cipher')) {
-    return 'agents';
-  }
-  if (lowerQuery.includes('development') || lowerQuery.includes('future') || lowerQuery.includes('roadmap')) {
-    return 'development';
-  }
-  return 'general';
-}
-
-function cleanupOldContexts() {
-  const now = Date.now();
-  for (const [userId, context] of CONVERSATION_CONTEXT.activeConversations) {
-    if (now - context.lastUpdate > CONVERSATION_CONTEXT.contextTimeout) {
-      CONVERSATION_CONTEXT.activeConversations.delete(userId);
-    }
-  }
-}
-
 // Webhook handler
 app.post('/webhook', async (req, res) => {
   try {
     let content = '';
-    let username = '';
-    let tweetUrl = '';
     const contentType = req.get('content-type') || '';
     
-    console.log('Tweet webhook received:', {
-      contentType,
-      body: req.body,
-      method: req.method,
-      headers: req.headers
-    });
-
-    // Handle different content types
     if (contentType.includes('application/json')) {
-      if (req.body.value1) {
-        content = req.body.value1;
-        username = req.body.value2 || '';
-        tweetUrl = req.body.value3 || '';
-      } else if (req.body.text) {
-        content = req.body.text;
-        username = req.body.username || '';
-      } else {
-        content = JSON.stringify(req.body);
-      }
+      content = req.body.value1 || req.body.text || JSON.stringify(req.body);
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
       content = req.body.value1 || req.body.text || '';
-      username = req.body.value2 || req.body.username || '';
-      tweetUrl = req.body.value3 || '';
-    } else if (contentType.includes('text/plain')) {
-      content = req.body.toString();
     } else {
       content = req.body.toString();
     }
 
-    // Validate content
     if (!content) {
-      console.error('Empty tweet content received');
-      return res.status(400).json({
-        error: 'No tweet content provided',
-        received: {
-          contentType,
-          body: req.body
-        }
-      });
+      return res.status(400).json({ error: 'No content provided' });
     }
 
     // Check for duplicate tweets
     const tweetHash = Buffer.from(content).toString('base64');
     if (tweetCache.has(tweetHash)) {
-      console.log('Duplicate tweet detected, skipping');
-      return res.status(200).json({
-        status: 'skipped',
-        message: 'Duplicate tweet'
-      });
+      return res.status(200).json({ status: 'skipped', message: 'Duplicate tweet' });
     }
 
     // Cache the tweet hash (expire after 1 hour)
     tweetCache.set(tweetHash, true);
     setTimeout(() => tweetCache.delete(tweetHash), 60 * 60 * 1000);
 
-    // Check for required mentions/hashtags
-    const hasCyberforgeAi = content.includes('@cyberforge_ai');
-    const hasCyberforgeTag = content.includes('#cyberforge');
-
-    const message = `🌌 **Quantum Field Fluctuation Detected**\n${content}\n\n${
-      hasCyberforgeAi && hasCyberforgeTag ? '✨ Quantum resonance confirmed!' : ''
-    }`;
+    const message = `🌌 **Quantum Field Fluctuation Detected**\n${content}`;
 
     // Broadcast to all available channels
     let broadcastSuccess = false;
     for (const guild of client.guilds.cache.values()) {
       try {
         const channels = guild.channels.cache.filter(channel => 
-          channel.type === 'GUILD_TEXT' && 
-          channel.permissionsFor(client.user).has(['SEND_MESSAGES', 'VIEW_CHANNEL']) &&
+          channel.type === ChannelType.GuildText && 
+          channel.permissionsFor(client.user).has(['SendMessages', 'ViewChannel']) &&
           (channel.name.includes('announce') || channel.name.includes('general') || channel.name.includes('bot'))
         );
 
@@ -612,7 +531,7 @@ app.post('/webhook', async (req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', async (req, res) => {
+app.get('/health', (req, res) => {
   const status = {
     status: 'operational',
     discord: {
@@ -633,48 +552,36 @@ app.get('/health', async (req, res) => {
   res.status(200).json(status);
 });
 
-// Initialize bot
-client.once('ready', async () => {
-  console.log(`Quantum-Forge initialized as ${client.user.tag}`);
-  
-  try {
-    if (client.user.username !== 'Quantum-Forge') {
-      await client.user.setUsername('Quantum-Forge');
-    }
-    
-    await client.user.setAvatar('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image%20(22).jpg-mQZSisIcGmE1piRS2ZvstSJn8eU5n4.jpeg');
-    
-    await client.user.setActivity('quantum timelines', { type: 'WATCHING' });
-    
-    console.log('Bot configuration completed successfully');
-  } catch (error) {
-    console.error('Initialization error:', error);
-  }
-});
+// Exit if environment variables are missing
+if (!checkRequiredEnvVars()) {
+  process.exit(1);
+}
 
 // Start server
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
   console.log(`Quantum network established on port ${PORT}`);
-  console.log('Webhook endpoint:', `http://localhost:${PORT}/webhook`);
 });
 
-// Graceful shutdown handler
-process.on('SIGTERM', async () => {
-  console.log('Quantum-Forge: Initiating shutdown sequence...');
+// Initialize bot
+client.once('ready', async () => {
+  console.log(`Quantum-Forge initialized as ${client.user.tag}`);
   
-  if (client) {
-    await client.destroy();
-    console.log('Quantum-Forge: Discord connection terminated');
-  }
-  
-  if (server) {
-    server.close(() => {
-      console.log('Quantum-Forge: Express server closed');
-      process.exit(0);
-    });
-  } else {
-    process.exit(0);
+  try {
+    // Set bot username if needed
+    if (client.user.username !== 'Quantum-Forge') {
+      await client.user.setUsername('Quantum-Forge');
+    }
+    
+    // Set bot avatar
+    await client.user.setAvatar('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image%20(22).jpg-mQZSisIcGmE1piRS2ZvstSJn8eU5n4.jpeg');
+    
+    // Set activity
+    await client.user.setActivity('quantum timelines', { type: ActivityType.Watching });
+    
+    console.log('Bot configuration completed successfully');
+  } catch (error) {
+    console.error('Initialization error:', error);
   }
 });
 
@@ -683,115 +590,21 @@ process.on('unhandledRejection', error => {
   console.error('Unhandled quantum anomaly:', error);
 });
 
-// Login bot with error handling
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('Initiating shutdown sequence...');
+  await client.destroy();
+  server.close(() => {
+    console.log('Quantum-Forge shutdown complete');
+    process.exit(0);
+  });
+});
+
+// Login bot
 client.login(process.env.DISCORD_BOT_TOKEN).catch(error => {
   console.error('Failed to login to Discord:', error);
   process.exit(1);
 });
 
 module.exports = app;
-
-// First, let's create a verification script
-const { Client, Intents } = require('discord.js');
-
-async function verifyEnvironment() {
-  console.log('Starting environment verification...');
-  
-  // 1. Check if variables are present
-  const token = process.env.DISCORD_BOT_TOKEN;
-  const mistralKey = process.env.MISTRAL_API_KEY;
-  
-  console.log('\nEnvironment Variables Status:');
-  console.log('DISCORD_BOT_TOKEN:', token ? '✓ Present' : '✗ Missing');
-  console.log('MISTRAL_API_KEY:', mistralKey ? '✓ Present' : '✗ Missing');
-  
-  // 2. Verify Discord token format
-  if (token) {
-    console.log('\nValidating Discord token format...');
-    const tokenParts = token.split('.');
-    if (tokenParts.length !== 3) {
-      console.error('❌ Invalid token format. Token should have 3 parts separated by dots.');
-      process.exit(1);
-    }
-    console.log('✓ Token format appears valid');
-  }
-
-  // 3. Test Discord connection
-  console.log('\nTesting Discord connection...');
-  const client = new Client({
-    intents: [Intents.FLAGS.GUILDS]
-  });
-
-  try {
-    await client.login(token);
-    console.log('✓ Successfully connected to Discord as:', client.user.tag);
-    await client.destroy();
-  } catch (error) {
-    console.error('❌ Discord connection failed:', error.message);
-    console.log('\nPossible solutions:');
-    console.log('1. Token might be invalid or expired');
-    console.log('2. Bot might not be invited to any servers');
-    console.log('3. Token might have leading/trailing spaces');
-    process.exit(1);
-  }
-}
-
-// Run verification
-verifyEnvironment().catch(console.error);
-
-// Update the environment check at the start of server.js
-require('dotenv').config();
-
-function checkRequiredEnvVars() {
-  console.log('\nEnvironment Check:');
-  console.log('==================');
-  
-  const required = ['DISCORD_BOT_TOKEN', 'MISTRAL_API_KEY'];
-  const missing = [];
-  const invalid = [];
-
-  for (const key of required) {
-    const value = process.env[key];
-    if (!value) {
-      missing.push(key);
-      continue;
-    }
-
-    // Validate Discord token format
-    if (key === 'DISCORD_BOT_TOKEN') {
-      const tokenParts = value.split('.');
-      if (tokenParts.length !== 3) {
-        invalid.push(`${key} (invalid format)`);
-      }
-    }
-
-    console.log(`✓ ${key}: Found`);
-  }
-
-  if (missing.length > 0 || invalid.length > 0) {
-    console.error('\n🚫 Configuration errors found:');
-    
-    if (missing.length > 0) {
-      console.error('\nMissing variables:');
-      missing.forEach(key => console.error(`- ${key}`));
-    }
-    
-    if (invalid.length > 0) {
-      console.error('\nInvalid variables:');
-      invalid.forEach(key => console.error(`- ${key}`));
-    }
-
-    console.error('\nTo fix:');
-    console.error('1. Go to https://railway.app/dashboard');
-    console.error('2. Select your project');
-    console.error('3. Click "Variables"');
-    console.error('4. Add/update the required variables');
-    return false;
-  }
-
-  console.log('\n✅ All environment variables verified!\n');
-  return true;
-}
-
-// Rest of server.js remains the same...
 
