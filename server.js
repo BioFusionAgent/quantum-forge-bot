@@ -739,3 +739,59 @@ async function verifyEnvironment() {
 // Run verification
 verifyEnvironment().catch(console.error);
 
+// Update the environment check at the start of server.js
+require('dotenv').config();
+
+function checkRequiredEnvVars() {
+  console.log('\nEnvironment Check:');
+  console.log('==================');
+  
+  const required = ['DISCORD_BOT_TOKEN', 'MISTRAL_API_KEY'];
+  const missing = [];
+  const invalid = [];
+
+  for (const key of required) {
+    const value = process.env[key];
+    if (!value) {
+      missing.push(key);
+      continue;
+    }
+
+    // Validate Discord token format
+    if (key === 'DISCORD_BOT_TOKEN') {
+      const tokenParts = value.split('.');
+      if (tokenParts.length !== 3) {
+        invalid.push(`${key} (invalid format)`);
+      }
+    }
+
+    console.log(`✓ ${key}: Found`);
+  }
+
+  if (missing.length > 0 || invalid.length > 0) {
+    console.error('\n🚫 Configuration errors found:');
+    
+    if (missing.length > 0) {
+      console.error('\nMissing variables:');
+      missing.forEach(key => console.error(`- ${key}`));
+    }
+    
+    if (invalid.length > 0) {
+      console.error('\nInvalid variables:');
+      invalid.forEach(key => console.error(`- ${key}`));
+    }
+
+    console.error('\nTo fix:');
+    console.error('1. Go to https://railway.app/dashboard');
+    console.error('2. Select your project');
+    console.error('3. Click "Variables"');
+    console.error('4. Add/update the required variables');
+    return false;
+  }
+
+  console.log('\n✅ All environment variables verified!\n');
+  return true;
+}
+
+// Rest of server.js remains the same...
+
