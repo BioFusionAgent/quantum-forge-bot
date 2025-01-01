@@ -1,11 +1,10 @@
 {
   "name": "quantum-forge-bot",
   "version": "1.0.0",
-  "description": "Quantum-Forge Discord Bot with Twitter Integration",
+  "description": "Quantum-Forge Discord Bot for QuantumChronoTerminal",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test-webhook.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {
@@ -13,12 +12,22 @@
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "node-fetch": "^2.6.7",
-    "dotenv": "^16.4.7"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
+    "dotenv": "^16.0.3"
   },
   "engines": {
     "node": ">=16.9.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/quantum-forge-bot"
+  },
+  "keywords": [
+    "discord-bot",
+    "quantum-forge",
+    "ai",
+    "mistral"
+  ],
+  "author": "CyberForge",
+  "license": "MIT"
 }
+

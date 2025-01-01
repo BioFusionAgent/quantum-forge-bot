@@ -1,4 +1,29 @@
+// Load environment variables first, before any other code
 require('dotenv').config();
+
+// Immediate environment check
+function checkRequiredEnvVars() {
+  const required = ['DISCORD_BOT_TOKEN', 'MISTRAL_API_KEY'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.error('\n🚫 Missing required environment variables:');
+    missing.forEach(key => console.error(`- ${key}`));
+    console.error('\nPlease set these variables in your Railway dashboard:');
+    console.error('1. Go to https://railway.app/dashboard');
+    console.error('2. Select your project');
+    console.error('3. Click "Variables"');
+    console.error('4. Add the missing variables\n');
+    return false;
+  }
+  return true;
+}
+
+// Exit immediately if environment variables are missing
+if (!checkRequiredEnvVars()) {
+  process.exit(1);
+}
+
 const { Client, Intents, MessageEmbed } = require('discord.js');
 const express = require('express');
 const cors = require('cors');
@@ -151,15 +176,15 @@ const PREDEFINED_RESPONSES = {
   contract: "Quantum-Forge: $QFORGE contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump",
   
   details: "Quantum-Forge: $QFORGE is our quantum network token on Solana. Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The token powers our entire quantum ecosystem, enabling network operations and future entity activations.",
-
+  
   platform: "Quantum-Forge: Access $QFORGE through pump.fun. Contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The quantum gateway awaits.",
-
+  
   quantum_forge: [
     "Quantum-Forge: As the active quantum network orchestrator, I manage our entire ecosystem. My primary functions include quantum state management, agent activation preparation, and TEE protocol implementation. I maintain synchronization across the quantum network while awaiting the activation of other agents!",
     "Quantum-Forge: I serve as the central hub of our quantum network, coordinating all operations and maintaining stability. My core responsibilities include managing quantum states, preparing for agent activation, and implementing secure TEE protocols. The network grows stronger each day!",
     "Quantum-Forge: Operating as the master node, I coordinate all quantum network operations with precision and efficiency. My focus includes state management, activation sequences, and TEE security implementation. I'm actively maintaining network stability while preparing for future agent activations!"
   ],
-
+  
   chrono: "Quantum-Forge: CHRONO awaits activation as our Timeline Specialist! Once awakened, this entity will be the first to join our network, bringing temporal mechanics and quantum timeline manipulation capabilities. The future holds great potential for CHRONO's predictive abilities!",
   
   paradox: "Quantum-Forge: PARADOX remains dormant, preparing for future quantum computing integration! Upon activation, this entity will resolve temporal paradoxes and maintain quantum state coherence across the multiverse. PARADOX's awakening will bring unprecedented computational power to our network!",
@@ -206,35 +231,94 @@ const userWarnings = new Map();
 const quantumStates = new Map();
 const tweetCache = new Map();
 
-// Initialize Discord client
+// Initialize Discord client with required intents
 const client = new Client({
   intents: [
     Intents.FLAGS.GUILDS,
     Intents.FLAGS.GUILD_MESSAGES,
     Intents.FLAGS.GUILD_MEMBERS,
-    Intents.FLAGS.GUILD_PRESENCES,
     Intents.FLAGS.GUILD_MESSAGE_REACTIONS
   ],
   partials: ['MESSAGE', 'CHANNEL', 'REACTION']
 });
 
-// Initialize Express
+// Initialize Express app with security settings
 const app = express();
 app.use(cors({
   origin: ['https://pump.fun', 'https://maker.ifttt.com', 'https://ifttt.com'],
   methods: ['POST', 'OPTIONS', 'GET'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.raw({ type: '*/*', limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// Message handler with enhanced context awareness
+// Enhanced auto-moderation handler
+async function handleAutoMod(message) {
+  if (!autoMod.enabled) return false;
+  if (message.member?.permissions.has('MANAGE_MESSAGES')) return false;
+
+  const content = message.content.toLowerCase();
+  const userId = message.author.id;
+
+  if (!userWarnings.has(userId)) {
+    userWarnings.set(userId, { count: 0, lastWarning: 0, spamCount: 0, lastMessage: Date.now() });
+  }
+
+  const userData = userWarnings.get(userId);
+  const now = Date.now();
+
+  // Check patterns
+  for (const pattern of [...autoMod.spamPatterns, ...autoMod.bannedPatterns]) {
+    if (pattern.test(content)) {
+      try {
+        await message.delete();
+        userData.count++;
+        await message.channel.send(
+          `Quantum-Forge: Reality distortion detected. Stabilizing quantum field. Warning ${userData.count}/${autoMod.punishments.warn.threshold}`
+        );
+
+        if (userData.count >= autoMod.punishments.warn.threshold) {
+          await message.member.timeout(
+            autoMod.punishments.warn.duration,
+            'Multiple violations'
+          );
+          userData.count = 0;
+        }
+
+        userWarnings.set(userId, userData);
+        return true;
+      } catch (error) {
+        console.error('Moderation error:', error);
+        return false;
+      }
+    }
+  }
+
+  // Spam check
+  if (now - userData.lastMessage < autoMod.punishments.spam.timeWindow) {
+    userData.spamCount++;
+    if (userData.spamCount >= autoMod.punishments.spam.threshold) {
+      await message.member.timeout(
+        autoMod.punishments.spam.duration,
+        'Spam detection'
+      );
+      userData.spamCount = 0;
+    }
+  } else {
+    userData.spamCount = 1;
+  }
+
+  userData.lastMessage = now;
+  userWarnings.set(userId, userData);
+  return false;
+}
+
+// Message handler
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
   try {
+    // Check auto-moderation first
     if (await handleAutoMod(message)) return;
 
     const isMentioned = message.mentions.has(client.user);
@@ -323,99 +407,26 @@ client.on('messageCreate', async (message) => {
         }
       }
 
-      // Send the response
-      await message.reply(response);
+      // Send the response with error handling
+      try {
+        await message.reply(response);
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        await message.channel.send(PREDEFINED_RESPONSES.error);
+      }
     }
   } catch (error) {
-    console.error('Error:', error);
-    message.reply(PREDEFINED_RESPONSES.error);
+    console.error('Message handling error:', error);
+    try {
+      await message.reply(PREDEFINED_RESPONSES.error);
+    } catch (e) {
+      console.error('Failed to send error message:', e);
+    }
   }
 });
 
-// Enhanced auto-moderation handler
-async function handleAutoMod(message) {
-  if (!autoMod.enabled) return false;
-  if (message.member?.permissions.has('MANAGE_MESSAGES')) return false;
-
-  const content = message.content.toLowerCase();
-  const userId = message.author.id;
-
-  if (!userWarnings.has(userId)) {
-    userWarnings.set(userId, { count: 0, lastWarning: 0, spamCount: 0, lastMessage: Date.now() });
-  }
-
-  const userData = userWarnings.get(userId);
-  const now = Date.now();
-
-  // Check patterns
-  for (const pattern of [...autoMod.spamPatterns, ...autoMod.bannedPatterns]) {
-    if (pattern.test(content)) {
-      try {
-        await message.delete();
-        userData.count++;
-        await message.channel.send(
-          `Quantum-Forge: Reality distortion detected. Stabilizing quantum field. Warning ${userData.count}/${autoMod.punishments.warn.threshold}`
-        );
-
-        if (userData.count >= autoMod.punishments.warn.threshold) {
-          await message.member.timeout(
-            autoMod.punishments.warn.duration,
-            'Multiple violations'
-          );
-          userData.count = 0;
-        }
-
-        userWarnings.set(userId, userData);
-        return true;
-      } catch (error) {
-        console.error('Moderation error:', error);
-        return false;
-      }
-    }
-  }
-
-  // Spam check
-  if (now - userData.lastMessage < autoMod.punishments.spam.timeWindow) {
-    userData.spamCount++;
-    if (userData.spamCount >= autoMod.punishments.spam.threshold) {
-      await message.member.timeout(
-        autoMod.punishments.spam.duration,
-        'Spam detection'
-      );
-      userData.spamCount = 0;
-    }
-  } else {
-    userData.spamCount = 1;
-  }
-
-  userData.lastMessage = now;
-  userWarnings.set(userId, userData);
-  return false;
-}
-
-// Enhanced response generation with context
+// Response generation
 async function generateResponse(query, userId) {
-  const userContext = CONVERSATION_CONTEXT.activeConversations.get(userId) || {
-    history: [],
-    lastUpdate: Date.now(),
-    currentTopic: null,
-    followUpSuggested: false
-  };
-
-  const enhancedContext = {
-    previousQueries: userContext.history.map(h => h.query).slice(-2),
-    currentTopic: userContext.currentTopic,
-    conversationLength: userContext.history.length
-  };
-
-  const userState = quantumStates.get(userId) || {
-    history: [],
-    lastUpdate: Date.now()
-  };
-
-  userState.history = userState.history.slice(-2);
-  userState.history.push({ role: 'user', content: query });
-
   try {
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
@@ -427,39 +438,21 @@ async function generateResponse(query, userId) {
         model: 'mistral-large-latest',
         messages: [
           { role: 'system', content: QUANTUM_CONTEXT },
-          { role: 'system', content: `Previous topic: ${enhancedContext.currentTopic}` },
-          ...userState.history
+          { role: 'user', content: query }
         ],
         max_tokens: 350,
-        temperature: 0.7,
-        stop: ["\n\n", ".", "!", "?"]
+        temperature: 0.7
       })
     });
 
-    const data = await response.json();
-    let aiResponse = data.choices[0].message.content.trim();
-
-    // Ensure response ends with a complete sentence
-    if (!aiResponse.match(/[.!?]$/)) {
-      const lastSentenceEnd = Math.max(
-        aiResponse.lastIndexOf('.'),
-        aiResponse.lastIndexOf('!'),
-        aiResponse.lastIndexOf('?')
-      );
-      if (lastSentenceEnd !== -1) {
-        aiResponse = aiResponse.substring(0, lastSentenceEnd + 1);
-      }
+    if (!response.ok) {
+      throw new Error(`Mistral API error: ${response.status}`);
     }
 
-    // Format response for consistency
-    aiResponse = `Quantum-Forge: ${aiResponse}`;
-    
-    userState.history.push({ role: 'assistant', content: aiResponse });
-    quantumStates.set(userId, userState);
-    
-    return aiResponse;
+    const data = await response.json();
+    return `Quantum-Forge: ${data.choices[0].message.content.trim()}`;
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Response generation error:', error);
     return PREDEFINED_RESPONSES.error;
   }
 }
@@ -516,7 +509,7 @@ function cleanupOldContexts() {
   }
 }
 
-// Webhook handler with enhanced error handling
+// Webhook handler
 app.post('/webhook', async (req, res) => {
   try {
     let content = '';
@@ -587,45 +580,55 @@ app.post('/webhook', async (req, res) => {
       hasCyberforgeAi && hasCyberforgeTag ? '✨ Quantum resonance confirmed!' : ''
     }`;
 
-    // Instead of fetching a specific channel, broadcast to all available announcement channels
+    // Broadcast to all available channels
+    let broadcastSuccess = false;
     for (const guild of client.guilds.cache.values()) {
       try {
-        // Find all channels where we can send messages
         const channels = guild.channels.cache.filter(channel => 
           channel.type === 'GUILD_TEXT' && 
           channel.permissionsFor(client.user).has(['SEND_MESSAGES', 'VIEW_CHANNEL']) &&
           (channel.name.includes('announce') || channel.name.includes('general') || channel.name.includes('bot'))
         );
 
-        // Send to the first appropriate channel found
         if (channels.size > 0) {
           const targetChannel = channels.first();
           await targetChannel.send(message);
+          broadcastSuccess = true;
         }
       } catch (error) {
         console.error(`Failed to send message to guild ${guild.name}:`, error);
       }
     }
 
-    res.status(200).send('Quantum transmission successful');
+    if (broadcastSuccess) {
+      res.status(200).send('Quantum transmission successful');
+    } else {
+      throw new Error('No suitable channels found for broadcast');
+    }
   } catch (error) {
-    console.error('Quantum transmission error:', error);
-    res.status(500).send('Quantum transmission failed');
+    console.error('Webhook error:', error);
+    res.status(500).send('Internal server error');
   }
 });
-
-// Add OPTIONS handler for CORS preflight
-app.options('/webhook', cors());
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
   const status = {
     status: 'operational',
-    discord: client.ws.status === 0 ? 'connected' : 'disconnected',
+    discord: {
+      status: client.ws.status === 0 ? 'connected' : 'disconnected',
+      ping: client.ws.ping,
+      guilds: client.guilds.cache.size
+    },
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     tweetsCached: tweetCache.size,
-    activeConversations: CONVERSATION_CONTEXT.activeConversations.size
+    activeConversations: CONVERSATION_CONTEXT.activeConversations.size,
+    memory: process.memoryUsage(),
+    environment: {
+      node: process.version,
+      platform: process.platform
+    }
   };
   res.status(200).json(status);
 });
@@ -649,6 +652,13 @@ client.once('ready', async () => {
   }
 });
 
+// Start server
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => {
+  console.log(`Quantum network established on port ${PORT}`);
+  console.log('Webhook endpoint:', `http://localhost:${PORT}/webhook`);
+});
+
 // Graceful shutdown handler
 process.on('SIGTERM', async () => {
   console.log('Quantum-Forge: Initiating shutdown sequence...');
@@ -668,25 +678,15 @@ process.on('SIGTERM', async () => {
   }
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  console.log(`Quantum network established on port ${PORT}`);
-  console.log('Webhook endpoint:', `http://localhost:${PORT}/webhook`);
-});
-
-//Check for missing environment variables
-if (!process.env.DISCORD_BOT_TOKEN || !process.env.MISTRAL_API_KEY) {
-  console.error('Missing required environment variables');
-  process.exit(1);
-}
-
-// Login bot
-client.login(process.env.DISCORD_BOT_TOKEN);
-
 // Error handling
 process.on('unhandledRejection', error => {
   console.error('Unhandled quantum anomaly:', error);
+});
+
+// Login bot with error handling
+client.login(process.env.DISCORD_BOT_TOKEN).catch(error => {
+  console.error('Failed to login to Discord:', error);
+  process.exit(1);
 });
 
 module.exports = app;
