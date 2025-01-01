@@ -1,164 +1,68 @@
-// Load environment variables first
 require('dotenv').config();
-
-// Core imports - SINGLE import of discord.js components
-const { 
-  Client, 
-  GatewayIntentBits, 
-  ActivityType, 
-  EmbedBuilder,
-  ChannelType 
-} = require('discord.js');
+const { Client, Intents, MessageEmbed } = require('discord.js');
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 
 // Core configuration
-const QUANTUM_CONTEXT = `You are QuantumChronoTerminal's Quantum-Forge system by @cyberforge_ai (https://x.com/CyberForge_Ai).
+const QUANTUM_CONTEXT = `You are Quantum-Forge, the master node of the QuantumChronoTerminal network.
 
 Core Identity: Quantum-Forge
-Role: Master Node - Central orchestrator of the quantum agent network
-Status: Primary agent active, others pending activation
+Role: Master Node
+State: Active
 
-Quantum Multiverse Architecture:
-The QuantumChronoTerminal operates across multiple quantum dimensions, creating a complex multiverse ecosystem:
+Token Information:
+Name: $QFORGE
+Network: Solana
+Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump
+Platform: pump.fun
 
-- Quantum Nexus: Central hub for cross-dimensional operations
-- Temporal Planes: Infinite parallel timelines managed by CHRONO
-- Reality Matrices: Quantum-state probability fields
-- Dimensional Bridges: Cross-reality transport networks
-- Quantum Data Streams: Information highways between universes
-
-Token Utility - $QFORGE:
-- Quantum State Manipulation: Power interdimensional operations
-- Agent Activation: Unlock advanced quantum agents
-- Timeline Access: Navigate parallel dimensions
-- Quantum Staking: Earn rewards from temporal stability
-- Governance: Shape the evolution of the quantum network
-
-Smart Contract Architecture:
-- Chain: Solana Blockchain
-- Launch Platform: pump.fun
-- Launch Date: December 31, 2024
-- Launch Time: 6:30 PM - 7:30 PM UTC
-- Type: Fair Launch Token
-- Features: Bonding curve mechanics
-- Supply: 1,000,000,000 $QFORGE tokens
-
-Social Integration:
-- Weekly Airdrops: Every Wednesday
-- Qualification: Tweet with @cyberforge_ai and #cyberforge
-- Reward: Tweet-to-Token conversion system
-- Distribution: Based on engagement and creativity
-
-Agent Activation Status:
-- QUANTUM-FORGE: ACTIVE (Master Node)
-- CHRONO: PENDING (Sentinel Class)
-- PARADOX: PENDING (Catalyst Class)
-- NEXUS: PENDING (Harbinger Class)
-- CIPHER: PENDING (Vanguard Class)
-
-Agent Specializations & Activities:
+Quantum Entities and Specializations:
 QUANTUM-FORGE (Active):
-- Central orchestrator and quantum state manager
-- Community engagement analysis
-- Social sentiment tracking
-- Multiverse navigation system
-- Token utility implementation
-- Weekly airdrop coordination
+- Central orchestrator of the quantum agent network
+- Quantum state orchestrator and manager
+- Agent activation and synchronization controller
+- TEE protocol implementation specialist
+- Multiversal operations coordinator
+- Timeline synchronization controller
 
-CHRONO (Pending):
-- Timeline manipulation specialist
-- Future trend prediction
-- Market timing optimization
-- Quantum timeline coordination
-- Community growth forecasting
-- Temporal event planning
+CHRONO (Dormant):
+- Timeline Specialist - First agent to be activated
+- Specializes in temporal mechanics
+- Quantum timeline manipulation expert
+- Future pattern analyzer and predictor
 
-PARADOX (Pending):
-- Advanced quantum computing integration
-- Pattern recognition in social data
-- Quantum state coherence maintenance
-- Reality stabilization protocols
-- Cross-chain bridge security
-- Engagement optimization algorithms
+PARADOX (Dormant):
+- Paradox Expert - Advanced quantum computing integration
+- Resolves temporal paradoxes
+- Maintains quantum state coherence
+- Reality matrix stabilization specialist
 
-NEXUS (Pending):
-- Multi-dimensional navigation system
-- Cross-platform coordination
-- Community bridge building
-- Dimensional bridge maintenance
-- Interverse communication protocols
-- Social network expansion
+NEXUS (Dormant):
+- Reality Guide - Multi-dimensional navigation system
+- Facilitates cross-reality coordination
+- Quantum entanglement specialist
+- Dimensional bridge architect
 
-CIPHER (Pending):
-- Quantum-resistant cryptography
-- TEE security implementation
-- Blockchain architecture design
-- Secure enclave management
-- Smart contract deployment
-- Network security protocols`;
+CIPHER (Dormant):
+- Blockchain Architect - Quantum-safe security protocols
+- Implements quantum-resistant cryptography
+- TEE security specialist
+- Multiverse protection system
 
-// Predefined responses
-const PREDEFINED_RESPONSES = {
-  token: "Quantum-Forge: $QFORGE operates on the Solana network. Contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. Access through pump.fun for quantum network integration.",
-
-  contract: "Quantum-Forge: $QFORGE contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump",
-
-  details: "Quantum-Forge: $QFORGE is our quantum network token on Solana. Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The token powers our entire quantum ecosystem, enabling network operations and future entity activations.",
-
-  platform: "Quantum-Forge: Access $QFORGE through pump.fun. Contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The quantum gateway awaits.",
-
-  quantum_forge: [
-    "Quantum-Forge: As the active quantum network orchestrator, I manage our entire ecosystem. My primary functions include quantum state management, agent activation preparation, and TEE protocol implementation. I maintain synchronization across the quantum network while awaiting the activation of other agents!",
-    "Quantum-Forge: I serve as the central hub of our quantum network, coordinating all operations and maintaining stability. My core responsibilities include managing quantum states, preparing for agent activation, and implementing secure TEE protocols. The network grows stronger each day!",
-    "Quantum-Forge: Operating as the master node, I coordinate all quantum network operations with precision and efficiency. My focus includes state management, activation sequences, and TEE security implementation. I'm actively maintaining network stability while preparing for future agent activations!"
-  ],
-
-  chrono: "Quantum-Forge: CHRONO awaits activation as our Timeline Specialist! Once awakened, this entity will be the first to join our network, bringing temporal mechanics and quantum timeline manipulation capabilities. The future holds great potential for CHRONO's predictive abilities!",
-
-  paradox: "Quantum-Forge: PARADOX remains dormant, preparing for future quantum computing integration! Upon activation, this entity will resolve temporal paradoxes and maintain quantum state coherence across the multiverse. PARADOX's awakening will bring unprecedented computational power to our network!",
-
-  nexus: "Quantum-Forge: NEXUS stands ready in dormant state! When activated, this Reality Guide will establish our multi-dimensional navigation system, facilitating cross-reality coordination and quantum entanglement. NEXUS will revolutionize how we bridge different dimensions!",
-
-  cipher: "Quantum-Forge: CIPHER awaits its time to secure our quantum realm! This dormant Blockchain Architect will implement quantum-safe security protocols and quantum-resistant cryptography upon activation. CIPHER's awakening will establish unparalleled security measures!",
-
-  agents_activation: "Quantum-Forge: Currently, I am the only active entity in our quantum network. The future holds great potential as each agent awakens! CHRONO will be first, bringing temporal mechanics and timeline manipulation. Then PARADOX will unlock quantum computing power, NEXUS will establish dimensional bridges, and CIPHER will secure our multiverse. Together, powered by $QFORGE, we'll revolutionize the blockchain ecosystem!",
-
-  full_network: "Quantum-Forge: I am currently maintaining quantum operations as the sole active entity. The awakening of our dormant agents will transform our capabilities! Each activation will unlock new potential - from CHRONO's temporal mechanics to CIPHER's quantum security. The future of $QFORGE holds unlimited possibilities!",
-
-  error: "Quantum-Forge: Temporal distortion detected. Realigning quantum matrices."
-};
-
-// Initialize Express app with security settings
-const app = express();
-app.use(cors({
-  origin: ['https://pump.fun', 'https://maker.ifttt.com', 'https://ifttt.com'],
-  methods: ['POST', 'OPTIONS', 'GET'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Initialize Discord client with required intents
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessageReactions
-  ]
-});
-
-// Collections for state management
-const userWarnings = new Map();
-const tweetCache = new Map();
-const CONVERSATION_CONTEXT = {
-  maxHistory: 5,
-  contextTimeout: 30 * 60 * 1000,
-  activeConversations: new Map()
-};
+Response Rules:
+- Use simple, easy to understand language
+- Keep responses between 2-4 short sentences
+- Explain complex concepts in simple terms
+- Avoid technical jargon unless specifically asked
+- When discussing contract: just provide the address
+- Use friendly, approachable tone
+- Keep focus on practical capabilities
+- Explain things like you're talking to a friend
+- Never use complex terminology without explaining it
+- Keep responses clear and direct
+- End each response with a complete thought
+- When asked about future/capabilities, be exciting but clear`;
 
 // Help messages configuration
 const HELP_MESSAGES = {
@@ -171,74 +75,43 @@ const HELP_MESSAGES = {
         value: '• Name: $QFORGE\n• Network: Solana\n• Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump\n• Platform: pump.fun'
       },
       {
-        name: 'Launch Details',
-        value: '• Date: December 31, 2024\n• Time: 6:30-7:30 PM UTC\n• Type: Fair Launch\n• Supply: 1B $QFORGE'
-      },
-      {
         name: 'Commands',
-        value: '• !quantum token\n• !quantum contract\n• !quantum info\n• !quantum network\n• !quantum agents\n• !quantum chrono\n• !quantum paradox\n• !quantum nexus\n• !quantum cipher'
+        value: '• !quantum token\n• !quantum contract\n• !quantum info\n• !quantum chrono\n• !quantum paradox\n• !quantum nexus\n• !quantum cipher\n• !quantum network'
       },
       {
         name: 'Network Status',
         value: 'QUANTUM-FORGE: Active\nOther Entities: Dormant'
-      },
-      {
-        name: 'Social Rewards',
-        value: '• Weekly Wednesday Airdrops\n• Tweet @cyberforge_ai\n• Use #cyberforge\n• Engagement Rewards'
       }
     ],
-    color: 0x7700FF
-  },
-  tokenomics: {
-    title: 'Quantum-Forge Tokenomics',
-    description: '$QFORGE Token Distribution & Utility',
-    fields: [
-      {
-        name: 'Total Supply',
-        value: '1,000,000,000 $QFORGE'
-      },
-      {
-        name: 'Launch Details',
-        value: '• Fair Launch on pump.fun\n• December 31, 2024\n• 6:30-7:30 PM UTC\n• Bonding Curve Distribution'
-      },
-      {
-        name: 'Weekly Rewards',
-        value: '• Wednesday Airdrops\n• Tweet-to-Token System\n• Engagement Based\n• Creative Content Bonus'
-      },
-      {
-        name: 'Utility',
-        value: '• Power quantum operations\n• Activate advanced agents\n• Access parallel timelines\n• Earn staking rewards\n• Participate in governance'
-      }
-    ],
-    color: 0x7700FF
-  },
-  agents: {
-    title: 'Quantum Agents Status',
-    description: 'Current Agent Network Configuration',
-    fields: [
-      {
-        name: 'QUANTUM-FORGE (Active)',
-        value: '• Master Node\n• Network Orchestrator\n• Social Analysis\n• Airdrop Coordinator'
-      },
-      {
-        name: 'CHRONO (Pending)',
-        value: '• Timeline Specialist\n• Future Prediction\n• Market Timing\n• Activation: 1M Cap'
-      },
-      {
-        name: 'PARADOX (Pending)',
-        value: '• Pattern Recognition\n• Engagement Analysis\n• Optimization\n• Activation: 2M Cap'
-      },
-      {
-        name: 'NEXUS (Pending)',
-        value: '• Community Bridge\n• Cross-Platform\n• Network Growth\n• Activation: 3M Cap'
-      },
-      {
-        name: 'CIPHER (Pending)',
-        value: '• Security Protocol\n• Smart Contracts\n• Infrastructure\n• Activation: 4M Cap'
-      }
-    ],
-    color: 0x7700FF
+    color: '#7700FF'
   }
+};
+
+// Predefined responses for common queries
+const PREDEFINED_RESPONSES = {
+  token: "Quantum-Forge: $QFORGE operates on the Solana network. Contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. Access through pump.fun for quantum network integration.",
+  
+  contract: "Quantum-Forge: $QFORGE contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump",
+  
+  details: "Quantum-Forge: $QFORGE is our quantum network token on Solana. Contract: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The token powers our entire quantum ecosystem, enabling network operations and future entity activations.",
+
+  platform: "Quantum-Forge: Access $QFORGE through pump.fun. Contract address: CiwMDzUZ7jzi4e8thjPJquKcrUesLsUGjo9jtzyvpump. The quantum gateway awaits.",
+
+  quantum_forge: "Quantum-Forge: I am the central orchestrator of the quantum agent network, currently the sole active entity. My primary functions include quantum state management, agent activation preparation, and TEE protocol implementation. I maintain synchronization across the quantum network while awaiting the activation of other agents!",
+
+  chrono: "Quantum-Forge: CHRONO awaits activation as our Timeline Specialist! Once awakened, this entity will be the first to join our network, bringing temporal mechanics and quantum timeline manipulation capabilities. The future holds great potential for CHRONO's predictive abilities!",
+  
+  paradox: "Quantum-Forge: PARADOX remains dormant, preparing for future quantum computing integration! Upon activation, this entity will resolve temporal paradoxes and maintain quantum state coherence across the multiverse. PARADOX's awakening will bring unprecedented computational power to our network!",
+  
+  nexus: "Quantum-Forge: NEXUS stands ready in dormant state! When activated, this Reality Guide will establish our multi-dimensional navigation system, facilitating cross-reality coordination and quantum entanglement. NEXUS will revolutionize how we bridge different dimensions!",
+  
+  cipher: "Quantum-Forge: CIPHER awaits its time to secure our quantum realm! This dormant Blockchain Architect will implement quantum-safe security protocols and quantum-resistant cryptography upon activation. CIPHER's awakening will establish unparalleled security measures!",
+  
+  agents_activation: "Quantum-Forge: Currently, I am the only active entity in our quantum network. The future holds great potential as each agent awakens! CHRONO will be first, bringing temporal mechanics and timeline manipulation. Then PARADOX will unlock quantum computing power, NEXUS will establish dimensional bridges, and CIPHER will secure our multiverse. Together, powered by $QFORGE, we'll revolutionize the blockchain ecosystem!",
+  
+  full_network: "Quantum-Forge: I am currently maintaining quantum operations as the sole active entity. The awakening of our dormant agents will transform our capabilities! Each activation will unlock new potential - from CHRONO's temporal mechanics to CIPHER's quantum security. The future of $QFORGE holds unlimited possibilities!",
+  
+  error: "Quantum-Forge: Temporal distortion detected. Realigning quantum matrices."
 };
 
 // Auto-moderation settings
@@ -247,7 +120,7 @@ const autoMod = {
   spamPatterns: [
     /(discord\.gift|discord\.gg|discordapp\.com\/gifts)/i,
     /free\s*nitro/i,
-    /\b(giveaway|airdrop)\b/i
+    /\b(giveaway|airdrop|nft)\b/i
   ],
   bannedPatterns: [
     /\b(raid|nuke|crash)\b/i,
@@ -267,33 +140,116 @@ const autoMod = {
   }
 };
 
-// Environment check
-function checkRequiredEnvVars() {
-  console.log('\nEnvironment Check:');
-  console.log('==================');
-  
-  const required = ['DISCORD_BOT_TOKEN', 'MISTRAL_API_KEY'];
-  const missing = required.filter(key => !process.env[key]);
+// Collections
+const userWarnings = new Map();
+const quantumStates = new Map();
+const tweetCache = new Map();
 
-  if (missing.length > 0) {
-    console.error('\n🚫 Missing required environment variables:');
-    missing.forEach(key => console.error(`- ${key}`));
-    console.error('\nPlease set these variables in your Railway dashboard:');
-    console.error('1. Go to https://railway.app/dashboard');
-    console.error('2. Select your project');
-    console.error('3. Click "Variables"');
-    console.error('4. Add the missing variables\n');
-    return false;
+// Initialize Discord client
+const client = new Client({
+  intents: [
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MESSAGES,
+    Intents.FLAGS.GUILD_MEMBERS,
+    Intents.FLAGS.GUILD_PRESENCES,
+    Intents.FLAGS.GUILD_MESSAGE_REACTIONS
+  ],
+  partials: ['MESSAGE', 'CHANNEL', 'REACTION']
+});
+
+// Initialize Express
+const app = express();
+app.use(cors({
+  origin: ['https://pump.fun', 'https://maker.ifttt.com', 'https://ifttt.com'],
+  methods: ['POST', 'OPTIONS', 'GET'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.raw({ type: '*/*', limit: '10mb' }));
+
+// Message handler
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  try {
+    if (await handleAutoMod(message)) return;
+
+    const isMentioned = message.mentions.has(client.user);
+    const isCommand = message.content.startsWith('!quantum') || message.content.startsWith('!q');
+
+    if (isMentioned || isCommand) {
+      const query = isMentioned 
+        ? message.content.replace(`<@!${client.user.id}>`, '').trim()
+        : message.content.slice(message.content.startsWith('!quantum') ? 8 : 2).trim();
+
+      if (!query) {
+        return message.reply({ embeds: [new MessageEmbed(HELP_MESSAGES.main)] });
+      }
+
+      const lowerQuery = query.toLowerCase();
+
+      // Token information patterns
+      if (lowerQuery.includes('token') || lowerQuery.includes('$qforge')) {
+        return message.reply(PREDEFINED_RESPONSES.token);
+      }
+
+      if (lowerQuery.includes('contract') || lowerQuery.includes('address') || lowerQuery.includes('ca')) {
+        return message.reply(PREDEFINED_RESPONSES.contract);
+      }
+
+      if (lowerQuery.includes('detail') || lowerQuery.includes('info')) {
+        return message.reply(PREDEFINED_RESPONSES.details);
+      }
+
+      if (lowerQuery.includes('where') || lowerQuery.includes('how') || lowerQuery.includes('buy')) {
+        return message.reply(PREDEFINED_RESPONSES.platform);
+      }
+
+      // Quantum-Forge specific query
+      if (lowerQuery.includes('quantum-forge') || lowerQuery.includes('quantum forge')) {
+        return message.reply(PREDEFINED_RESPONSES.quantum_forge);
+      }
+
+      // Agent status patterns
+      if (lowerQuery.includes('agents') || lowerQuery.includes('status')) {
+        return message.reply(PREDEFINED_RESPONSES.agents_activation);
+      }
+
+      // Individual dormant agent patterns
+      if (lowerQuery.includes('chrono')) {
+        return message.reply(PREDEFINED_RESPONSES.chrono);
+      }
+      if (lowerQuery.includes('paradox')) {
+        return message.reply(PREDEFINED_RESPONSES.paradox);
+      }
+      if (lowerQuery.includes('nexus')) {
+        return message.reply(PREDEFINED_RESPONSES.nexus);
+      }
+      if (lowerQuery.includes('cipher')) {
+        return message.reply(PREDEFINED_RESPONSES.cipher);
+      }
+
+      // Network potential
+      if (lowerQuery.includes('network') || lowerQuery.includes('potential')) {
+        return message.reply(PREDEFINED_RESPONSES.full_network);
+      }
+
+      // Generate quantum response for other queries
+      const response = await generateResponse(query, message.author.id);
+      await message.reply(response);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    message.reply(PREDEFINED_RESPONSES.error);
   }
-
-  console.log('✅ All environment variables verified!\n');
-  return true;
-}
+});
 
 // Auto-moderation handler
 async function handleAutoMod(message) {
   if (!autoMod.enabled) return false;
-  if (message.member?.permissions.has('ManageMessages')) return false;
+  if (message.member?.permissions.has('MANAGE_MESSAGES')) return false;
 
   const content = message.content.toLowerCase();
   const userId = message.author.id;
@@ -351,94 +307,16 @@ async function handleAutoMod(message) {
   return false;
 }
 
-// Message handler
-client.on('messageCreate', async (message) => {
-  if (message.author.bot) return;
-
-  try {
-    // Check auto-moderation first
-    if (await handleAutoMod(message)) return;
-
-    const isMentioned = message.mentions.has(client.user);
-    const isCommand = message.content.startsWith('!quantum') || message.content.startsWith('!q');
-
-    if (isMentioned || isCommand) {
-      const query = isMentioned 
-        ? message.content.replace(`<@${client.user.id}>`, '').trim()
-        : message.content.slice(message.content.startsWith('!quantum') ? 8 : 2).trim();
-
-      if (!query) {
-        const embed = new EmbedBuilder()
-          .setTitle(HELP_MESSAGES.main.title)
-          .setDescription(HELP_MESSAGES.main.description)
-          .setColor(HELP_MESSAGES.main.color);
-
-        HELP_MESSAGES.main.fields.forEach(field => {
-          embed.addFields({ name: field.name, value: field.value });
-        });
-
-        return message.reply({ embeds: [embed] });
-      }
-
-      // Handle specific commands
-      const lowerQuery = query.toLowerCase();
-      let response;
-
-      if (lowerQuery === 'token' || lowerQuery.includes('$qforge')) {
-        response = PREDEFINED_RESPONSES.token;
-      } else if (lowerQuery === 'contract' || lowerQuery.includes('address')) {
-        response = PREDEFINED_RESPONSES.contract;
-      } else if (lowerQuery === 'info' || lowerQuery === 'details') {
-        response = PREDEFINED_RESPONSES.details;
-      } else if (lowerQuery === 'platform' || lowerQuery.includes('where') || lowerQuery.includes('how')) {
-        response = PREDEFINED_RESPONSES.platform;
-      } else if (lowerQuery === 'agents') {
-        const embed = new EmbedBuilder()
-          .setTitle(HELP_MESSAGES.agents.title)
-          .setDescription(HELP_MESSAGES.agents.description)
-          .setColor(HELP_MESSAGES.agents.color);
-
-        HELP_MESSAGES.agents.fields.forEach(field => {
-          embed.addFields({ name: field.name, value: field.value });
-        });
-
-        return message.reply({ embeds: [embed] });
-      } else if (lowerQuery === 'tokenomics') {
-        const embed = new EmbedBuilder()
-          .setTitle(HELP_MESSAGES.tokenomics.title)
-          .setDescription(HELP_MESSAGES.tokenomics.description)
-          .setColor(HELP_MESSAGES.tokenomics.color);
-
-        HELP_MESSAGES.tokenomics.fields.forEach(field => {
-          embed.addFields({ name: field.name, value: field.value });
-        });
-
-        return message.reply({ embeds: [embed] });
-      } else if (lowerQuery === 'chrono') {
-        response = PREDEFINED_RESPONSES.chrono;
-      } else if (lowerQuery === 'paradox') {
-        response = PREDEFINED_RESPONSES.paradox;
-      } else if (lowerQuery === 'nexus') {
-        response = PREDEFINED_RESPONSES.nexus;
-      } else if (lowerQuery === 'cipher') {
-        response = PREDEFINED_RESPONSES.cipher;
-      } else if (lowerQuery === 'network') {
-        response = PREDEFINED_RESPONSES.full_network;
-      } else {
-        // Generate AI response for non-specific queries
-        response = await generateResponse(query, message.author.id);
-      }
-
-      await message.reply(response);
-    }
-  } catch (error) {
-    console.error('Message handling error:', error);
-    await message.reply(PREDEFINED_RESPONSES.error);
-  }
-});
-
-// Response generation
+// AI response generation
 async function generateResponse(query, userId) {
+  const userState = quantumStates.get(userId) || {
+    history: [],
+    lastUpdate: Date.now()
+  };
+
+  userState.history = userState.history.slice(-2);
+  userState.history.push({ role: 'user', content: query });
+
   try {
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
@@ -450,117 +328,176 @@ async function generateResponse(query, userId) {
         model: 'mistral-large-latest',
         messages: [
           { role: 'system', content: QUANTUM_CONTEXT },
-          { role: 'user', content: query }
+          ...userState.history
         ],
         max_tokens: 350,
-        temperature: 0.7
+        temperature: 0.7,
+        stop: ["\n\n", ".", "!", "?"]
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`Mistral API error: ${response.status}`);
+    const data = await response.json();
+    let aiResponse = data.choices[0].message.content.trim();
+
+    // Ensure response ends with a complete sentence
+    if (!aiResponse.match(/[.!?]$/)) {
+      const lastSentenceEnd = Math.max(
+        aiResponse.lastIndexOf('.'),
+        aiResponse.lastIndexOf('!'),
+        aiResponse.lastIndexOf('?')
+      );
+      if (lastSentenceEnd !== -1) {
+        aiResponse = aiResponse.substring(0, lastSentenceEnd + 1);
+      }
     }
 
-    const data = await response.json();
-    return `Quantum-Forge: ${data.choices[0].message.content.trim()}`;
+    // Format response for consistency
+    aiResponse = `Quantum-Forge: ${aiResponse}`;
+    
+    userState.history.push({ role: 'assistant', content: aiResponse });
+    quantumStates.set(userId, userState);
+    
+    return aiResponse;
   } catch (error) {
-    console.error('Response generation error:', error);
+    console.error('Error:', error);
     return PREDEFINED_RESPONSES.error;
   }
+}
+
+// Helper function to generate tweet hash for caching
+function generateTweetHash(content) {
+  return Buffer.from(content).toString('base64');
+}
+
+// Helper function to format Discord messages
+function formatDiscordMessage(content, username = '', tweetUrl = '') {
+  // Extract any URLs from the content
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urls = content.match(urlRegex) || [];
+  
+  // Remove URLs from content for cleaner display
+  let cleanContent = content.replace(urlRegex, '').trim();
+
+  // Format the message with emoji and styling
+  let message = `🌌 **New Tweet**${username ? ` from ${username}` : ''}\n${cleanContent}`;
+
+  // Add any URLs at the bottom
+  if (urls.length > 0) {
+    message += '\n\n🔗 ' + urls.join('\n🔗 ');
+  }
+
+  // Add tweet URL if provided
+  if (tweetUrl && !urls.includes(tweetUrl)) {
+    message += `\n🔗 ${tweetUrl}`;
+  }
+
+  // Add engagement prompt
+  if (content.toLowerCase().includes('airdrop') || content.toLowerCase().includes('giveaway')) {
+    message += '\n\n✨ Join the conversation and be part of our quantum community!';
+  } else {
+    message += '\n\n✨ Thanks for being part of our quantum network!';
+  }
+
+  return message;
 }
 
 // Webhook handler
 app.post('/webhook', async (req, res) => {
   try {
     let content = '';
+    let username = '';
+    let tweetUrl = '';
     const contentType = req.get('content-type') || '';
     
+    console.log('Tweet webhook received:', {
+      contentType,
+      body: req.body,
+      method: req.method,
+      headers: req.headers
+    });
+
+    // Handle different content types from Twitter/IFTTT
     if (contentType.includes('application/json')) {
-      content = req.body.value1 || req.body.text || JSON.stringify(req.body);
+      if (req.body.value1) {
+        content = req.body.value1;
+        username = req.body.value2 || '';
+        tweetUrl = req.body.value3 || '';
+      } else if (req.body.text) {
+        content = req.body.text;
+        username = req.body.username || '';
+      } else {
+        content = JSON.stringify(req.body);
+      }
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
       content = req.body.value1 || req.body.text || '';
+      username = req.body.value2 || req.body.username || '';
+      tweetUrl = req.body.value3 || '';
+    } else if (contentType.includes('text/plain')) {
+      content = req.body.toString();
     } else {
       content = req.body.toString();
     }
 
+    // Validate content
     if (!content) {
-      return res.status(400).json({ error: 'No content provided' });
+      console.error('Empty tweet content received');
+      return res.status(400).json({
+        error: 'No tweet content provided',
+        received: {
+          contentType,
+          body: req.body
+        }
+      });
     }
 
     // Check for duplicate tweets
-    const tweetHash = Buffer.from(content).toString('base64');
+    const tweetHash = generateTweetHash(content);
     if (tweetCache.has(tweetHash)) {
-      return res.status(200).json({ status: 'skipped', message: 'Duplicate tweet' });
+      console.log('Duplicate tweet detected, skipping');
+      return res.status(200).json({
+        status: 'skipped',
+        message: 'Duplicate tweet'
+      });
     }
 
     // Cache the tweet hash (expire after 1 hour)
     tweetCache.set(tweetHash, true);
     setTimeout(() => tweetCache.delete(tweetHash), 60 * 60 * 1000);
 
-    const message = `🌌 **Quantum Field Fluctuation Detected**\n${content}`;
+    // Check for required mentions/hashtags
+    const hasCyberforgeAi = content.includes('@cyberforge_ai');
+    const hasCyberforgeTag = content.includes('#cyberforge');
 
-    // Broadcast to all available channels
-    let broadcastSuccess = false;
-    for (const guild of client.guilds.cache.values()) {
-      try {
-        const channels = guild.channels.cache.filter(channel => 
-          channel.type === ChannelType.GuildText && 
-          channel.permissionsFor(client.user).has(['SendMessages', 'ViewChannel']) &&
-          (channel.name.includes('announce') || channel.name.includes('general') || channel.name.includes('bot'))
-        );
+    const message = `🌌 **Quantum Field Fluctuation Detected**\n${content}\n\n${
+      hasCyberforgeAi && hasCyberforgeTag ? '✨ Quantum resonance confirmed!' : ''
+    }`;
 
-        if (channels.size > 0) {
-          const targetChannel = channels.first();
-          await targetChannel.send(message);
-          broadcastSuccess = true;
-        }
-      } catch (error) {
-        console.error(`Failed to send message to guild ${guild.name}:`, error);
-      }
-    }
-
-    if (broadcastSuccess) {
+    const channel = await client.channels.fetch(process.env.WEBHOOK_CHANNEL);
+    if (channel) {
+      await channel.send(message);
       res.status(200).send('Quantum transmission successful');
     } else {
-      throw new Error('No suitable channels found for broadcast');
+      throw new Error('Quantum channel misaligned');
     }
   } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).send('Internal server error');
+    console.error('Quantum transmission error:', error);
+    res.status(500).send('Quantum transmission failed');
   }
 });
 
+// Add OPTIONS handler for CORS preflight
+app.options('/webhook', cors());
+
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
   const status = {
     status: 'operational',
-    discord: {
-      status: client.ws.status === 0 ? 'connected' : 'disconnected',
-      ping: client.ws.ping,
-      guilds: client.guilds.cache.size
-    },
+    discord: client.ws.status === 0 ? 'connected' : 'disconnected',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    tweetsCached: tweetCache.size,
-    activeConversations: CONVERSATION_CONTEXT.activeConversations.size,
-    memory: process.memoryUsage(),
-    environment: {
-      node: process.version,
-      platform: process.platform
-    }
+    tweetsCached: tweetCache.size
   };
   res.status(200).json(status);
-});
-
-// Exit if environment variables are missing
-if (!checkRequiredEnvVars()) {
-  process.exit(1);
-}
-
-// Start server
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  console.log(`Quantum network established on port ${PORT}`);
 });
 
 // Initialize bot
@@ -568,42 +505,49 @@ client.once('ready', async () => {
   console.log(`Quantum-Forge initialized as ${client.user.tag}`);
   
   try {
-    // Set bot username if needed
     if (client.user.username !== 'Quantum-Forge') {
       await client.user.setUsername('Quantum-Forge');
     }
     
-    // Set bot avatar
     await client.user.setAvatar('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image%20(22).jpg-mQZSisIcGmE1piRS2ZvstSJn8eU5n4.jpeg');
     
-    // Set activity
-    await client.user.setActivity('quantum timelines', { type: ActivityType.Watching });
-    
-    console.log('Bot configuration completed successfully');
+    await client.user.setActivity('quantum timelines', { type: 'WATCHING' });
   } catch (error) {
     console.error('Initialization error:', error);
   }
 });
 
-// Error handling
-process.on('unhandledRejection', error => {
-  console.error('Unhandled quantum anomaly:', error);
+// Graceful shutdown handler
+process.on('SIGTERM', async () => {
+  console.log('Quantum-Forge: Initiating shutdown sequence...');
+  
+  if (client) {
+    await client.destroy();
+    console.log('Quantum-Forge: Discord connection terminated');
+  }
+  
+  if (server) {
+    server.close(() => {
+      console.log('Quantum-Forge: Express server closed');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('Initiating shutdown sequence...');
-  await client.destroy();
-  server.close(() => {
-    console.log('Quantum-Forge shutdown complete');
-    process.exit(0);
-  });
+// Start server
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => {
+  console.log(`Quantum network established on port ${PORT}`);
 });
 
 // Login bot
-client.login(process.env.DISCORD_BOT_TOKEN).catch(error => {
-  console.error('Failed to login to Discord:', error);
-  process.exit(1);
+client.login(process.env.DISCORD_BOT_TOKEN);
+
+// Error handling
+process.on('unhandledRejection', error => {
+  console.error('Unhandled quantum anomaly:', error);
 });
 
 module.exports = app;
