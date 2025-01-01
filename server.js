@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { Client, Intents, MessageEmbed } = require('discord.js');
 const express = require('express');
 const cors = require('cors');
@@ -47,6 +48,10 @@ const HELP_MESSAGES = {
       {
         name: 'Commands',
         value: '• !quantum + query\n• !entities\n• !contract'
+      },
+      {
+        name: 'Social Integration',
+        value: '• Tweet with @cyberforge_ai\n• Use #cyberforge\n• Get updates in Discord'
       }
     ],
     color: '#7700FF'
@@ -139,6 +144,7 @@ const autoMod = {
 // Collections
 const userWarnings = new Map();
 const quantumStates = new Map();
+const tweetCache = new Map(); // Cache to prevent duplicate tweets
 
 // Initialize Discord client
 const client = new Client({
@@ -163,10 +169,10 @@ app.use(cors({
   credentials: true
 }));
 
-// Configure body parsers
-app.use(express.raw({ type: '*/*' }));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+// Configure body parsers with increased limit for larger tweets
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.raw({ type: '*/*', limit: '10mb' }));
 
 // Message handler
 client.on('messageCreate', async (message) => {
@@ -349,42 +355,85 @@ async function generateResponse(query, userId) {
   }
 }
 
-// Webhook handler
+// Helper function to generate tweet hash for caching
+function generateTweetHash(content) {
+  return Buffer.from(content).toString('base64');
+}
+
+// Helper function to format Discord messages
+function formatDiscordMessage(content, username = '', tweetUrl = '') {
+  // Extract any URLs from the content
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urls = content.match(urlRegex) || [];
+  
+  // Remove URLs from content for cleaner display
+  let cleanContent = content.replace(urlRegex, '').trim();
+
+  // Format the message with emoji and styling
+  let message = `🌌 **New Tweet**${username ? ` from ${username}` : ''}\n${cleanContent}`;
+
+  // Add any URLs at the bottom
+  if (urls.length > 0) {
+    message += '\n\n🔗 ' + urls.join('\n🔗 ');
+  }
+
+  // Add tweet URL if provided
+  if (tweetUrl && !urls.includes(tweetUrl)) {
+    message += `\n🔗 ${tweetUrl}`;
+  }
+
+  // Add engagement prompt
+  if (content.toLowerCase().includes('airdrop') || content.toLowerCase().includes('giveaway')) {
+    message += '\n\n✨ Join the conversation and be part of our quantum community!';
+  } else {
+    message += '\n\n✨ Thanks for being part of our quantum network!';
+  }
+
+  return message;
+}
+
+// Twitter webhook handler
 app.post('/webhook', async (req, res) => {
   try {
     let content = '';
+    let username = '';
+    let tweetUrl = '';
     const contentType = req.get('content-type') || '';
     
-    console.log('Webhook received:', {
+    console.log('Tweet webhook received:', {
       contentType,
       body: req.body,
       method: req.method,
       headers: req.headers
     });
 
-    // Handle different content types from IFTTT
+    // Handle different content types from Twitter/IFTTT
     if (contentType.includes('application/json')) {
       if (req.body.value1) {
         content = req.body.value1;
+        username = req.body.value2 || '';
+        tweetUrl = req.body.value3 || '';
       } else if (req.body.text) {
         content = req.body.text;
+        username = req.body.username || '';
       } else {
         content = JSON.stringify(req.body);
       }
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
       content = req.body.value1 || req.body.text || '';
+      username = req.body.value2 || req.body.username || '';
+      tweetUrl = req.body.value3 || '';
     } else if (contentType.includes('text/plain')) {
       content = req.body.toString();
     } else {
-      // Handle raw body
       content = req.body.toString();
     }
 
     // Validate content
     if (!content) {
-      console.error('Empty webhook content received');
+      console.error('Empty tweet content received');
       return res.status(400).json({
-        error: 'No content provided',
+        error: 'No tweet content provided',
         received: {
           contentType,
           body: req.body
@@ -392,17 +441,43 @@ app.post('/webhook', async (req, res) => {
       });
     }
 
+    // Check for duplicate tweets
+    const tweetHash = generateTweetHash(content);
+    if (tweetCache.has(tweetHash)) {
+      console.log('Duplicate tweet detected, skipping');
+      return res.status(200).json({
+        status: 'skipped',
+        message: 'Duplicate tweet'
+      });
+    }
+
+    // Cache the tweet hash (expire after 1 hour)
+    tweetCache.set(tweetHash, true);
+    setTimeout(() => tweetCache.delete(tweetHash), 60 * 60 * 1000);
+
     // Log the processed content
-    console.log('Processed content:', content);
+    console.log('Processed tweet:', { content, username, tweetUrl });
 
     // Check for required mentions/hashtags (case insensitive)
     const contentLower = content.toLowerCase();
     const hasCyberforgeAi = contentLower.includes('@cyberforge_ai');
     const hasCyberforgeTag = contentLower.includes('#cyberforge');
 
-    const message = `🌌 **New Update**\n${content}\n\n${
-      hasCyberforgeAi && hasCyberforgeTag ? '✨ Thanks for being part of our community!' : ''
-    }`;
+    // Only process tweets with both @cyberforge_ai and #cyberforge
+    if (!hasCyberforgeAi || !hasCyberforgeTag) {
+      console.log('Tweet missing required mentions/tags:', {
+        hasCyberforgeAi,
+        hasCyberforgeTag,
+        content
+      });
+      return res.status(200).json({
+        status: 'skipped',
+        message: 'Tweet does not contain required mentions/tags'
+      });
+    }
+
+    // Format message for Discord
+    const message = formatDiscordMessage(content, username, tweetUrl);
 
     // Ensure webhook channel is configured
     if (!process.env.WEBHOOK_CHANNEL) {
@@ -412,24 +487,27 @@ app.post('/webhook', async (req, res) => {
       });
     }
 
+    // Send to Discord
     const channel = await client.channels.fetch(process.env.WEBHOOK_CHANNEL);
-    if (channel) {
-      await channel.send(message);
-      console.log('Webhook message sent successfully');
-      return res.status(200).json({
-        status: 'success',
-        message: 'Message sent successfully'
-      });
-    } else {
+    if (!channel) {
       throw new Error('Discord channel not found');
     }
+
+    await channel.send(message);
+    console.log('Tweet successfully posted to Discord');
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Tweet posted to Discord successfully'
+    });
+
   } catch (error) {
-    console.error('Webhook error:', {
+    console.error('Tweet webhook error:', {
       message: error.message,
       stack: error.stack
     });
     return res.status(500).json({
-      error: 'Failed to process message',
+      error: 'Failed to process tweet',
       details: error.message
     });
   }
@@ -469,13 +547,31 @@ app.get('/webhook/test', async (req, res) => {
   }
 });
 
+// Add webhook verification endpoint
+app.get('/webhook/verify', (req, res) => {
+  res.status(200).json({
+    status: 'operational',
+    features: {
+      twitterIntegration: true,
+      mentionTracking: true,
+      hashtagTracking: true,
+      discordPosting: true
+    },
+    requirements: {
+      mention: '@cyberforge_ai',
+      hashtag: '#cyberforge'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/health', async (req, res) => {
   const status = {
     status: 'operational',
     discord: client.ws.status === 0 ? 'connected' : 'disconnected',
     uptime: process.uptime(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    tweetsCached: tweetCache.size
   };
   res.status(200).json(status);
 });
@@ -492,6 +588,8 @@ client.once('ready', async () => {
     await client.user.setAvatar('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image%20(22).jpg-mQZSisIcGmE1piRS2ZvstSJn8eU5n4.jpeg');
     
     await client.user.setActivity('quantum timelines', { type: 'WATCHING' });
+    
+    console.log('Bot configuration completed successfully');
   } catch (error) {
     console.error('Initialization error:', error);
   }
@@ -520,6 +618,8 @@ process.on('SIGTERM', async () => {
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('Webhook endpoint:', `http://localhost:${PORT}/webhook`);
+  console.log('Test endpoint:', `http://localhost:${PORT}/webhook/test`);
 });
 
 // Login bot
@@ -531,3 +631,4 @@ process.on('unhandledRejection', error => {
 });
 
 module.exports = app;
+
